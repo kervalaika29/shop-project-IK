@@ -1,0 +1,18 @@
+{% extends "shop/base.html" %}
+
+{% block title %}მთავარი · Mini Shop{% endblock %}
+
+{% block content %}
+    <div class="page-head">
+        <h1>ყველა პროდუქტი</h1>
+        <p class="muted">დალაგებულია ფასის ზრდადობით · სულ: {{ products|length }} პროდუქტი</p>
+    </div>
+
+    <div class="grid">
+        {% for product in products %}
+            {% include "shop/_product_card.html" %}
+        {% empty %}
+            <p class="muted">პროდუქტები ჯერ არ არის დამატებული.</p>
+        {% endfor %}
+    </div>
+{% endblock %}

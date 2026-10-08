@@ -1,0 +1,47 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Mini Shop{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'shop/style.css' %}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <a class="logo" href="{% url 'home' %}">Mini<span>Shop</span></a>
+            <nav class="main-nav">
+                <a href="{% url 'home' %}">მთავარი</a>
+                <a href="{% url 'sale' %}" class="nav-sale">ფასდაკლება</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container layout">
+        <aside class="sidebar">
+            <h2>კატეგორიები</h2>
+            <ul class="category-list">
+                {% for category in categories %}
+                    <li>
+                        <a href="{% url 'category_detail' category.pk %}"
+                           {% if category.pk == category_pk_active %}class="active"{% endif %}>
+                            {{ category.name }}
+                            <span class="count">({{ category.product_count }})</span>
+                        </a>
+                    </li>
+                {% empty %}
+                    <li class="muted">კატეგორიები ჯერ არ არის.</li>
+                {% endfor %}
+            </ul>
+        </aside>
+
+        <section class="content">
+            {% block content %}{% endblock %}
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">Mini Shop &middot; Django Homework 36</div>
+    </footer>
+</body>
+</html>

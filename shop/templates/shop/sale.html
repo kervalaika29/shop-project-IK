@@ -1,0 +1,22 @@
+{% extends "shop/base.html" %}
+
+{% block title %}ფასდაკლება · Mini Shop{% endblock %}
+
+{% block content %}
+    <nav class="breadcrumbs">
+        <a href="{% url 'home' %}">მთავარი</a> / <span>ფასდაკლება</span>
+    </nav>
+
+    <div class="page-head">
+        <h1>ფასდაკლებული პროდუქტები <span class="badge-sale badge-inline">SALE</span></h1>
+        <p class="muted">სულ: {{ products|length }} პროდუქტი</p>
+    </div>
+
+    <div class="grid">
+        {% for product in products %}
+            {% include "shop/_product_card.html" %}
+        {% empty %}
+            <p class="muted">ამჟამად ფასდაკლებული პროდუქტები არ არის.</p>
+        {% endfor %}
+    </div>
+{% endblock %}

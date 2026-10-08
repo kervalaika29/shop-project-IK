@@ -1,0 +1,41 @@
+{% extends "shop/base.html" %}
+
+{% block title %}{{ product.name }} · Mini Shop{% endblock %}
+
+{% block content %}
+    <nav class="breadcrumbs">
+        <a href="{% url 'home' %}">მთავარი</a> /
+        <a href="{% url 'category_detail' product.category.pk %}">{{ product.category.name }}</a> /
+        <span>{{ product.name }}</span>
+    </nav>
+
+    <article class="detail">
+        <div class="detail-thumb">
+            <span class="thumb-letter">{{ product.name|slice:":1"|upper }}</span>
+            {% if product.has_discount %}<span class="badge-sale">SALE</span>{% endif %}
+        </div>
+
+        <div class="detail-info">
+            <a class="card-category" href="{% url 'category_detail' product.category.pk %}">{{ product.category.name }}</a>
+            <h1>{{ product.name }}</h1>
+            <div class="detail-price">
+                {{ product.price }} ₾
+                {% if product.has_discount %}<span class="badge-sale badge-inline">SALE</span>{% endif %}
+            </div>
+
+            <h2>აღწერა</h2>
+            {% if product.description %}
+                <p>{{ product.description|linebreaksbr }}</p>
+            {% else %}
+                <p class="muted">აღწერა არ არის მითითებული.</p>
+            {% endif %}
+
+            <p class="detail-status">
+                ფასდაკლება:
+                {% if product.has_discount %}<strong class="yes">დიახ</strong>{% else %}<strong>არა</strong>{% endif %}
+            </p>
+
+            <a class="btn" href="{% url 'category_detail' product.category.pk %}">&larr; უკან კატეგორიაში</a>
+        </div>
+    </article>
+{% endblock %}

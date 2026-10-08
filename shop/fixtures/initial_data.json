@@ -1,0 +1,196 @@
+[
+{
+  "model": "shop.category",
+  "pk": 1,
+  "fields": {
+    "name": "Laptops",
+    "description": "Laptops for work, study and everyday use."
+  }
+},
+{
+  "model": "shop.category",
+  "pk": 2,
+  "fields": {
+    "name": "Smartphones",
+    "description": "Latest smartphones from leading brands."
+  }
+},
+{
+  "model": "shop.category",
+  "pk": 3,
+  "fields": {
+    "name": "Headphones",
+    "description": "Wireless and wired headphones and earbuds."
+  }
+},
+{
+  "model": "shop.category",
+  "pk": 4,
+  "fields": {
+    "name": "Accessories",
+    "description": "Cables, cases, bags and other useful accessories."
+  }
+},
+{
+  "model": "shop.category",
+  "pk": 5,
+  "fields": {
+    "name": "Furniture",
+    "description": "Office and home furniture (no products yet)."
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 1,
+  "fields": {
+    "name": "ASUS VivoBook 15",
+    "description": "15.6\" FHD display, Intel Core i5, 16GB RAM, 512GB SSD.",
+    "price": "1299.00",
+    "category": 1,
+    "has_discount": false
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 2,
+  "fields": {
+    "name": "Lenovo IdeaPad 3",
+    "description": "Reliable everyday laptop with Ryzen 5 and 512GB SSD.",
+    "price": "1099.00",
+    "category": 1,
+    "has_discount": true
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 3,
+  "fields": {
+    "name": "HP Pavilion 14",
+    "description": "Compact 14\" laptop with long battery life and fast charging.",
+    "price": "1699.00",
+    "category": 1,
+    "has_discount": false
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 4,
+  "fields": {
+    "name": "MacBook Air 13",
+    "description": "Apple M3 chip, 13.6\" Liquid Retina display, up to 18 hours of battery.",
+    "price": "3199.00",
+    "category": 1,
+    "has_discount": false
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 5,
+  "fields": {
+    "name": "Xiaomi Redmi Note 13",
+    "description": "6.67\" AMOLED display, 108MP camera, 5000mAh battery.",
+    "price": "699.00",
+    "category": 2,
+    "has_discount": true
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 6,
+  "fields": {
+    "name": "Samsung Galaxy A55",
+    "description": "6.6\" Super AMOLED, 50MP camera, IP67 water resistance.",
+    "price": "1199.00",
+    "category": 2,
+    "has_discount": true
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 7,
+  "fields": {
+    "name": "iPhone 15",
+    "description": "6.1\" Super Retina XDR, A16 Bionic chip, USB-C.",
+    "price": "2899.00",
+    "category": 2,
+    "has_discount": false
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 8,
+  "fields": {
+    "name": "JBL Tune 510BT",
+    "description": "Wireless on-ear headphones with up to 40 hours of playback.",
+    "price": "129.00",
+    "category": 3,
+    "has_discount": true
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 9,
+  "fields": {
+    "name": "AirPods Pro 2",
+    "description": "Active noise cancellation and adaptive transparency mode.",
+    "price": "799.00",
+    "category": 3,
+    "has_discount": false
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 10,
+  "fields": {
+    "name": "Sony WH-1000XM5",
+    "description": "Industry-leading noise cancelling over-ear headphones.",
+    "price": "949.00",
+    "category": 3,
+    "has_discount": false
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 11,
+  "fields": {
+    "name": "USB-C Cable 1m",
+    "description": "Durable braided USB-C charging and data cable.",
+    "price": "19.90",
+    "category": 4,
+    "has_discount": false
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 12,
+  "fields": {
+    "name": "Phone Case Silicone",
+    "description": "Soft-touch silicone case with microfiber lining.",
+    "price": "24.50",
+    "category": 4,
+    "has_discount": true
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 13,
+  "fields": {
+    "name": "Logitech M185 Wireless Mouse",
+    "description": "Compact wireless mouse with a 12-month battery life.",
+    "price": "39.90",
+    "category": 4,
+    "has_discount": true
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 14,
+  "fields": {
+    "name": "Laptop Backpack 15.6\"",
+    "description": "Water-resistant backpack with padded laptop compartment.",
+    "price": "89.00",
+    "category": 4,
+    "has_discount": false
+  }
+}
+]

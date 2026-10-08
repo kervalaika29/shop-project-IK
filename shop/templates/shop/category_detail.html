@@ -1,0 +1,22 @@
+{% extends "shop/base.html" %}
+
+{% block title %}{{ category.name }} · Mini Shop{% endblock %}
+
+{% block content %}
+    <nav class="breadcrumbs">
+        <a href="{% url 'home' %}">მთავარი</a> / <span>{{ category.name }}</span>
+    </nav>
+
+    <div class="page-head">
+        <h1>{{ category.name }} <span class="count">({{ category.product_count }})</span></h1>
+        {% if category.description %}<p class="muted">{{ category.description }}</p>{% endif %}
+    </div>
+
+    <div class="grid">
+        {% for product in products %}
+            {% include "shop/_product_card.html" %}
+        {% empty %}
+            <p class="muted">ამ კატეგორიაში პროდუქტები ჯერ არ არის.</p>
+        {% endfor %}
+    </div>
+{% endblock %}
