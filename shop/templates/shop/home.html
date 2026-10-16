@@ -1,18 +1,179 @@
 {% extends "shop/base.html" %}
+{% load static %}
 
-{% block title %}მთავარი · Mini Shop{% endblock %}
+{% block title %}Home · Mini Shop{% endblock %}
+
+{# მთავარ გვერდზე ჩვეულებრივი სათაურის ნაცვლად carousel, სერვისების ზოლი და შეთავაზებებია (index.html შაბლონიდან) #}
+{% block header %}
+<!-- Carousel Start -->
+<div class="container-fluid carousel bg-light px-0">
+    <div class="row g-0 justify-content-end">
+        <div class="col-12 col-lg-7 col-xl-9">
+            <div class="header-carousel owl-carousel bg-light py-5">
+                <div class="row g-0 header-carousel-item align-items-center">
+                    <div class="col-xl-6 carousel-img wow fadeInLeft" data-wow-delay="0.1s">
+                        <img src="{% static 'shop/img/carousel-1.png' %}" class="img-fluid w-100" alt="Image">
+                    </div>
+                    <div class="col-xl-6 carousel-content p-4">
+                        <h4 class="text-uppercase fw-bold mb-4 wow fadeInRight" data-wow-delay="0.1s" style="letter-spacing: 3px;">Best Prices</h4>
+                        <h1 class="display-3 text-capitalize mb-4 wow fadeInRight" data-wow-delay="0.3s">On Selected Laptops, Smartphones &amp; Accessories</h1>
+                        <p class="text-dark wow fadeInRight" data-wow-delay="0.5s">See every discounted product in one place</p>
+                        <a class="btn btn-primary rounded-pill py-3 px-5 wow fadeInRight" data-wow-delay="0.7s" href="{% url 'sale' %}">Shop Now</a>
+                    </div>
+                </div>
+                <div class="row g-0 header-carousel-item align-items-center">
+                    <div class="col-xl-6 carousel-img wow fadeInLeft" data-wow-delay="0.1s">
+                        <img src="{% static 'shop/img/carousel-2.png' %}" class="img-fluid w-100" alt="Image">
+                    </div>
+                    <div class="col-xl-6 carousel-content p-4">
+                        <h4 class="text-uppercase fw-bold mb-4 wow fadeInRight" data-wow-delay="0.1s" style="letter-spacing: 3px;">Manage Your Shop</h4>
+                        <h1 class="display-3 text-capitalize mb-4 wow fadeInRight" data-wow-delay="0.3s">Add, Edit Or Delete Any Product</h1>
+                        <p class="text-dark wow fadeInRight" data-wow-delay="0.5s">Every change appears on the site immediately</p>
+                        <a class="btn btn-primary rounded-pill py-3 px-5 wow fadeInRight" data-wow-delay="0.7s" href="{% url 'product_create' %}">Add Product</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-5 col-xl-3 wow fadeInRight" data-wow-delay="0.1s">
+            <div class="carousel-header-banner h-100">
+                <img src="{% static 'shop/img/header-img.jpg' %}" class="img-fluid w-100 h-100" style="object-fit: cover;" alt="Image">
+                <div class="carousel-banner-offer">
+                    <p class="bg-primary text-white rounded fs-5 py-2 px-4 mb-0 me-3">On Sale</p>
+                    <p class="text-primary fs-5 fw-bold mb-0">Special Offer</p>
+                </div>
+                {% if featured_product %}
+                    {# ყველაზე ძვირი ფასდაკლებული პროდუქტი ბაზიდან #}
+                    <div class="carousel-banner">
+                        <div class="carousel-banner-content text-center p-4">
+                            <a href="{% url 'category_detail' featured_product.category.pk %}" class="d-block mb-2">{{ featured_product.category.name }}</a>
+                            <a href="{% url 'product_detail' featured_product.pk %}" class="d-block text-white fs-3">{{ featured_product.name }}</a>
+                            <span class="text-primary fs-5">{{ featured_product.price }} ₾</span>
+                        </div>
+                        <a href="{% url 'product_detail' featured_product.pk %}" class="btn btn-primary rounded-pill py-2 px-4"><i class="fas fa-eye me-2"></i> View Details</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Carousel End -->
+
+{% include "shop/includes/services.html" %}
+
+{% if offer_products %}
+<!-- Products Offer Start -->
+<div class="container-fluid bg-light overflow-hidden py-5">
+    <div class="container">
+        <div class="row g-4">
+            {% for product in offer_products %}
+                <div class="col-lg-6 wow {% if forloop.first %}fadeInLeft{% else %}fadeInRight{% endif %}" data-wow-delay="0.2s">
+                    <a href="{% url 'product_detail' product.pk %}" class="d-flex align-items-center justify-content-between border bg-white rounded p-4">
+                        <div>
+                            <p class="text-muted mb-3">Best deal in {{ product.category.name }}!</p>
+                            <h3 class="text-primary">{{ product.name }}</h3>
+                            <h1 class="display-5 text-secondary mb-0">{{ product.price }} <span class="text-primary fw-normal">₾</span></h1>
+                        </div>
+                        <img src="{% static product.placeholder_image %}" class="img-fluid offer-img" alt="{{ product.name }}">
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+<!-- Products Offer End -->
+{% endif %}
+{% endblock %}
 
 {% block content %}
-    <div class="page-head">
-        <h1>ყველა პროდუქტი</h1>
-        <p class="muted">დალაგებულია ფასის ზრდადობით · სულ: {{ products|length }} პროდუქტი</p>
+<!-- Our Products Start -->
+<div class="container-fluid product py-5">
+    <div class="container py-5">
+        <div class="tab-class">
+            <div class="row g-4">
+                <div class="col-12 text-center wow fadeInUp" data-wow-delay="0.1s">
+                    {% if search_active %}
+                        <h1>Search Results</h1>
+                        <p class="text-muted">
+                            {{ products|length }} product{{ products|length|pluralize }} found{% if query %} for “{{ query }}”{% endif %}
+                            · <a href="{% url 'home' %}">show all</a>
+                        </p>
+                    {% else %}
+                        <h1>Our Products</h1>
+                        <p class="text-muted">Sorted by price, low to high · {{ products|length }} product{{ products|length|pluralize }}</p>
+                    {% endif %}
+                </div>
+                <div class="col-12 text-center wow fadeInUp" data-wow-delay="0.1s">
+                    {# კატეგორიების ღილაკები: "All Products" + თითო ღილაკი ყოველი არაცარიელი კატეგორიისთვის #}
+                    <ul class="nav nav-pills d-inline-flex flex-wrap justify-content-center text-center mb-3">
+                        <li class="nav-item mb-4">
+                            <a class="d-flex mx-2 py-2 bg-light rounded-pill {% if not search_active %}active{% endif %}" href="{% url 'home' %}">
+                                <span class="text-dark px-4">All Products</span>
+                            </a>
+                        </li>
+                        {% for category in categories %}
+                            <li class="nav-item mb-4">
+                                <a class="d-flex mx-2 py-2 bg-light rounded-pill" href="{% url 'category_detail' category.pk %}">
+                                    <span class="text-dark px-4">{{ category.name }} ({{ category.product_count }})</span>
+                                </a>
+                            </li>
+                        {% endfor %}
+                        <li class="nav-item mb-4">
+                            <a class="d-flex mx-2 py-2 bg-light rounded-pill" href="{% url 'sale' %}">
+                                <span class="text-dark px-4">On Sale</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="tab-content">
+                <div class="tab-pane fade show p-0 active">
+                    <div class="row g-4">
+                        {% for product in products %}
+                            <div class="col-md-6 col-lg-4 col-xl-3">
+                                {% include "shop/includes/product_card.html" %}
+                            </div>
+                        {% empty %}
+                            <div class="col-12">
+                                <div class="bg-light rounded p-5 text-center">
+                                    <p class="mb-3 fs-5 text-dark">{% if search_active %}No products match your search.{% else %}No products have been added yet.{% endif %}</p>
+                                    <a href="{% url 'product_create' %}" class="btn btn-primary rounded-pill py-2 px-4">Add a product</a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
+<!-- Our Products End -->
 
-    <div class="grid">
-        {% for product in products %}
-            {% include "shop/_product_card.html" %}
-        {% empty %}
-            <p class="muted">პროდუქტები ჯერ არ არის დამატებული.</p>
-        {% endfor %}
+<!-- Product Banner Start -->
+<div class="container-fluid overflow-hidden py-5">
+    <div class="container pb-5">
+        <div class="row g-4">
+            <div class="col-lg-6 wow fadeInLeft" data-wow-delay="0.1s">
+                <div class="bg-primary rounded position-relative">
+                    <img src="{% static 'shop/img/product-banner.jpg' %}" class="img-fluid w-100 rounded" alt="">
+                    <div class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-center rounded p-4" style="background: rgba(255, 255, 255, 0.5);">
+                        <h3 class="display-5 text-primary">Have something <br> <span>to sell?</span></h3>
+                        <p class="fs-4 text-muted">Add a new product in a minute</p>
+                        <a href="{% url 'product_create' %}" class="btn btn-primary rounded-pill align-self-start py-2 px-4">Add Product</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6 wow fadeInRight" data-wow-delay="0.2s">
+                <div class="text-center bg-primary rounded position-relative">
+                    <img src="{% static 'shop/img/product-banner-2.jpg' %}" class="img-fluid w-100" alt="">
+                    <div class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-center rounded p-4" style="background: rgba(242, 139, 0, 0.5);">
+                        <h2 class="display-2 text-secondary">SALE</h2>
+                        <h4 class="display-5 text-white mb-4">Discounted products</h4>
+                        <a href="{% url 'sale' %}" class="btn btn-secondary rounded-pill align-self-center py-2 px-4">Shop Now</a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
+<!-- Product Banner End -->
 {% endblock %}

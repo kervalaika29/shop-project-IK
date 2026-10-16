@@ -1,0 +1,47 @@
+<!-- Navbar Start -->
+<div class="container-fluid nav-bar p-0">
+    <div class="row gx-0 bg-primary px-5 align-items-center">
+        <div class="col-lg-3 d-none d-lg-block">
+            <nav class="navbar navbar-light position-relative" style="width: 250px;">
+                <button class="navbar-toggler border-0 fs-4 w-100 px-0 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#allCat">
+                    <h4 class="m-0"><i class="fa fa-bars me-2"></i>All Categories</h4>
+                </button>
+                <div class="collapse navbar-collapse rounded-bottom" id="allCat">
+                    <div class="navbar-nav ms-auto py-0">
+                        {% include "shop/includes/category_list.html" %}
+                    </div>
+                </div>
+            </nav>
+        </div>
+        <div class="col-12 col-lg-9">
+            <nav class="navbar navbar-expand-lg navbar-light bg-primary">
+                <a href="{% url 'home' %}" class="navbar-brand d-block d-lg-none">
+                    <h1 class="display-5 text-secondary m-0"><i class="fas fa-shopping-bag text-white me-2"></i>Mini Shop</h1>
+                </a>
+                <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
+                    <span class="fa fa-bars fa-1x"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarCollapse">
+                    <div class="navbar-nav ms-auto py-0">
+                        {# აქტიური გვერდი: ვადარებთ მიმდინარე URL-ის სახელს (name=...) #}
+                        {% with current=request.resolver_match.url_name %}
+                            <a href="{% url 'home' %}" class="nav-item nav-link {% if current == 'home' %}active{% endif %}">Home</a>
+                            <a href="{% url 'sale' %}" class="nav-item nav-link {% if current == 'sale' %}active{% endif %}">Sale</a>
+                            <a href="{% url 'cart' %}" class="nav-item nav-link {% if current == 'cart' %}active{% endif %}">Shop Cart</a>
+                            <a href="{% url 'checkout' %}" class="nav-item nav-link {% if current == 'checkout' %}active{% endif %}">Checkout</a>
+                            <a href="{% url 'contact' %}" class="nav-item nav-link me-2 {% if current == 'contact' %}active{% endif %}">Contact</a>
+                        {% endwith %}
+                        <div class="nav-item dropdown d-block d-lg-none mb-3">
+                            <a href="#" class="nav-link" data-bs-toggle="dropdown"><span class="dropdown-toggle">All Category</span></a>
+                            <div class="dropdown-menu m-0">
+                                {% include "shop/includes/category_list.html" %}
+                            </div>
+                        </div>
+                    </div>
+                    <a href="{% url 'product_create' %}" class="btn btn-secondary rounded-pill py-2 px-4 px-lg-3 mb-3 mb-md-3 mb-lg-0"><i class="fa fa-plus me-2"></i> Add Product</a>
+                </div>
+            </nav>
+        </div>
+    </div>
+</div>
+<!-- Navbar End -->

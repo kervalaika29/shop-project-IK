@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 
+from django.contrib.messages import constants as message_constants
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -62,6 +64,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # კატეგორიები და ფასდაკლებული პროდუქტები ყველა გვერდისთვის
+                "shop.context_processors.shop_sidebar",
             ],
         },
     },
@@ -116,6 +120,13 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = "static/"
+
+
+# Messages (შეტყობინებები: "პროდუქტი დაემატა" და ა.შ.)
+# Bootstrap-ის ფერის კლასი "alert-danger"-ია, Django-ს "error" კი "alert-error" გამოვიდოდა.
+MESSAGE_TAGS = {
+    message_constants.ERROR: "danger",
+}
 
 
 # Email

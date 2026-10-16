@@ -1,0 +1,63 @@
+/* Mini Shop: Electro შაბლონზე დამატებული მცირე სტილები.
+   თავად შაბლონის style.css უცვლელია. */
+
+/* ბარათის ქვედა ბლოკი (Edit / Delete): სიმაღლე 34px, როგორც შაბლონის ხატულებისა */
+.product-item-add .product-actions {
+    min-height: 34px;
+}
+
+.product-item-add .product-actions a {
+    font-weight: 600;
+    transition: 0.3s;
+}
+
+.product-item-add .product-actions a:hover {
+    opacity: 0.7;
+}
+
+/* გვერდითი პანელი: აქტიური კატეგორია */
+.shop .product-categories .categories-item a.active {
+    color: var(--bs-primary) !important;
+    font-weight: 700;
+}
+
+/* მთავარი გვერდის შეთავაზებების სურათი */
+.offer-img {
+    max-width: 200px;
+}
+
+/* პროდუქტის დეტალურ გვერდზე SALE ნიშანი სურათის კუთხეში */
+.detail-image .detail-sale-badge {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bs-secondary);
+    color: var(--bs-white);
+    font-weight: 700;
+}
+
+/* ფორმის ველების ფოკუსი */
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgba(242, 139, 0, 0.15);
+}
+
+/* "SALE" ბეჯის ტექსტი მრგვალ ნიშანში */
+.product .product-item .product-item-inner .product-item-inner-item .product-sale {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* წაშლის დადასტურების გვერდის წრე ურნის ხატულით */
+.delete-icon {
+    width: 80px;
+    height: 80px;
+    background: rgba(220, 53, 69, 0.12);
+}

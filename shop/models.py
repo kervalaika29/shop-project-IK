@@ -1,4 +1,16 @@
 from django.db import models
+from django.urls import reverse
+
+# პროდუქტს სურათის ველი არ აქვს, ამიტომ ბარათზე ვაჩვენებთ Electro შაბლონის
+# მზა სურათებს (static/shop/img/product-N.png). კატეგორიის მიხედვით ვირჩევთ
+# შესაბამის სურათებს, უცნობი კატეგორიისთვის კი ყველა სურათს.
+CATEGORY_IMAGES = {
+    "laptops": [11],
+    "smartphones": [3, 15, 16, 17, 18, 10],
+    "headphones": [8],
+    "accessories": [9, 12, 13, 6],
+}
+DEFAULT_IMAGES = list(range(3, 19))
 
 
 class Category(models.Model):
@@ -31,3 +43,17 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        """პროდუქტის გვერდის მისამართი (გამოიყენება შენახვის შემდეგ გადასამისამართებლად)."""
+        return reverse("product_detail", args=[self.pk])
+
+    @property
+    def placeholder_image(self):
+        """
+        სურათის გზა static-ში. არჩევა დამოკიდებულია კატეგორიაზე და პროდუქტის
+        id-ზე, ამიტომ ერთი და იგივე პროდუქტს ყველა გვერდზე ერთი სურათი ექნება.
+        """
+        numbers = CATEGORY_IMAGES.get(self.category.name.lower(), DEFAULT_IMAGES)
+        number = numbers[(self.pk or 0) % len(numbers)]
+        return f"shop/img/product-{number}.png"

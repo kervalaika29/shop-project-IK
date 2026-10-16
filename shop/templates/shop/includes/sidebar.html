@@ -1,0 +1,46 @@
+{% load static %}
+{# გვერდითი პანელი კატეგორიის და ფასდაკლების გვერდებისთვის #}
+<div class="product-categories mb-4">
+    <h4>Products Categories</h4>
+    <ul class="list-unstyled">
+        {% for category in categories %}
+            <li>
+                <div class="categories-item">
+                    <a href="{% url 'category_detail' category.pk %}" class="text-dark {% if category.pk == category_pk_active %}active{% endif %}"><i class="fas fa-angle-right text-secondary me-2"></i> {{ category.name }}</a>
+                    <span>({{ category.product_count }})</span>
+                </div>
+            </li>
+        {% empty %}
+            <li class="text-muted py-2">No categories yet.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+{% if sale_products %}
+    <div class="featured-product mb-4">
+        <h4 class="mb-3">Products On Sale</h4>
+        {% for product in sale_products %}
+            <div class="featured-product-item mb-3">
+                <div class="rounded me-4 flex-shrink-0" style="width: 100px; height: 100px;">
+                    <a href="{% url 'product_detail' product.pk %}"><img src="{% static product.placeholder_image %}" class="img-fluid rounded" alt="{{ product.name }}"></a>
+                </div>
+                <div>
+                    <h6 class="mb-2"><a href="{% url 'product_detail' product.pk %}" class="text-dark">{{ product.name }}</a></h6>
+                    <h5 class="fw-bold me-2">{{ product.price }} ₾</h5>
+                </div>
+            </div>
+        {% endfor %}
+        <div class="d-flex justify-content-center my-4">
+            <a href="{% url 'sale' %}" class="btn btn-primary px-4 py-3 rounded-pill w-100">View More</a>
+        </div>
+    </div>
+{% endif %}
+
+<div class="position-relative">
+    <img src="{% static 'shop/img/product-banner-2.jpg' %}" class="img-fluid w-100 rounded" alt="Sale">
+    <div class="text-center position-absolute d-flex flex-column align-items-center justify-content-center rounded p-4" style="width: 100%; height: 100%; top: 0; right: 0; background: rgba(242, 139, 0, 0.3);">
+        <h5 class="display-6 text-primary">SALE</h5>
+        <h4 class="text-secondary">Discounted products</h4>
+        <a href="{% url 'sale' %}" class="btn btn-primary rounded-pill px-4">Shop Now</a>
+    </div>
+</div>

@@ -1,0 +1,43 @@
+{% extends "shop/base.html" %}
+{% comment %}
+    ორი სვეტის განლაგება (shop.html შაბლონიდან): მარცხნივ გვერდითი პანელი,
+    მარჯვნივ პროდუქტების ბადე. category_detail.html და sale.html ამ ფაილს აფართოებენ
+    და მხოლოდ თავიანთ ბლოკებს ავსებენ.
+{% endcomment %}
+
+{% block content %}
+<!-- Shop Page Start -->
+<div class="container-fluid shop py-5">
+    <div class="container py-5">
+        <div class="row g-4">
+            <div class="col-lg-3 wow fadeInUp" data-wow-delay="0.1s">
+                {% include "shop/includes/sidebar.html" %}
+            </div>
+            <div class="col-lg-9 wow fadeInUp" data-wow-delay="0.1s">
+                {% block list_banner %}{% endblock %}
+
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                    <h4 class="mb-0">{% block list_heading %}Products{% endblock %} <span class="text-muted fs-6">· {{ products|length }} product{{ products|length|pluralize }}, price low to high</span></h4>
+                    <a href="{% url 'product_create' %}" class="btn btn-primary rounded-pill py-2 px-4"><i class="fa fa-plus me-2"></i> Add Product</a>
+                </div>
+
+                <div class="row g-4 product">
+                    {% for product in products %}
+                        <div class="col-md-6 col-xl-4">
+                            {% include "shop/includes/product_card.html" %}
+                        </div>
+                    {% empty %}
+                        <div class="col-12">
+                            <div class="bg-light rounded p-5 text-center">
+                                <p class="mb-3 fs-5 text-dark">{% block empty_text %}There are no products here yet.{% endblock %}</p>
+                                <a href="{% url 'product_create' %}" class="btn btn-primary rounded-pill py-2 px-4">Add a product</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Shop Page End -->
+{% endblock %}

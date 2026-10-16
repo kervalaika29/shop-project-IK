@@ -1,41 +1,72 @@
 {% extends "shop/base.html" %}
+{% load static %}
 
 {% block title %}{{ product.name }} · Mini Shop{% endblock %}
+{% block page_title %}{{ product.name }}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'category_detail' product.category.pk %}">{{ product.category.name }}</a></li>
+    <li class="breadcrumb-item active text-white">{{ product.name }}</li>
+{% endblock %}
 
 {% block content %}
-    <nav class="breadcrumbs">
-        <a href="{% url 'home' %}">მთავარი</a> /
-        <a href="{% url 'category_detail' product.category.pk %}">{{ product.category.name }}</a> /
-        <span>{{ product.name }}</span>
-    </nav>
-
-    <article class="detail">
-        <div class="detail-thumb">
-            <span class="thumb-letter">{{ product.name|slice:":1"|upper }}</span>
-            {% if product.has_discount %}<span class="badge-sale">SALE</span>{% endif %}
-        </div>
-
-        <div class="detail-info">
-            <a class="card-category" href="{% url 'category_detail' product.category.pk %}">{{ product.category.name }}</a>
-            <h1>{{ product.name }}</h1>
-            <div class="detail-price">
-                {{ product.price }} ₾
-                {% if product.has_discount %}<span class="badge-sale badge-inline">SALE</span>{% endif %}
+<!-- Single Product Start -->
+<div class="container-fluid overflow-hidden py-5">
+    <div class="container py-5">
+        <div class="row g-5">
+            <div class="col-lg-6 wow fadeInLeft" data-wow-delay="0.1s">
+                <div class="border rounded p-4 position-relative text-center detail-image">
+                    <img src="{% static product.placeholder_image %}" class="img-fluid w-100" alt="{{ product.name }}">
+                    {% if product.has_discount %}
+                        <div class="detail-sale-badge">SALE</div>
+                    {% endif %}
+                </div>
             </div>
+            <div class="col-lg-6 wow fadeInRight" data-wow-delay="0.1s">
+                <a href="{% url 'category_detail' product.category.pk %}" class="text-secondary fs-5">{{ product.category.name }}</a>
+                <h1 class="display-6 mb-3">{{ product.name }}</h1>
+                <h3 class="text-primary mb-4">
+                    {{ product.price }} ₾
+                    {% if product.has_discount %}<span class="badge bg-secondary fs-6 ms-2 align-middle">SALE</span>{% endif %}
+                </h3>
 
-            <h2>აღწერა</h2>
-            {% if product.description %}
-                <p>{{ product.description|linebreaksbr }}</p>
-            {% else %}
-                <p class="muted">აღწერა არ არის მითითებული.</p>
-            {% endif %}
+                <h5>Description</h5>
+                {% if product.description %}
+                    <p class="mb-4 text-dark">{{ product.description|linebreaksbr }}</p>
+                {% else %}
+                    <p class="mb-4 text-muted">No description provided.</p>
+                {% endif %}
 
-            <p class="detail-status">
-                ფასდაკლება:
-                {% if product.has_discount %}<strong class="yes">დიახ</strong>{% else %}<strong>არა</strong>{% endif %}
-            </p>
+                <ul class="list-unstyled mb-4">
+                    <li class="py-2 border-bottom d-flex justify-content-between"><span class="text-muted">Category</span><span>{{ product.category.name }}</span></li>
+                    <li class="py-2 border-bottom d-flex justify-content-between"><span class="text-muted">Discount</span><span>{% if product.has_discount %}<strong class="text-secondary">Yes</strong>{% else %}No{% endif %}</span></li>
+                    <li class="py-2 border-bottom d-flex justify-content-between"><span class="text-muted">Product ID</span><span>#{{ product.pk }}</span></li>
+                </ul>
 
-            <a class="btn" href="{% url 'category_detail' product.category.pk %}">&larr; უკან კატეგორიაში</a>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="{% url 'product_update' product.pk %}" class="btn btn-primary rounded-pill py-2 px-4"><i class="fas fa-pencil-alt me-2"></i> Edit</a>
+                    <a href="{% url 'product_delete' product.pk %}" class="btn btn-outline-danger rounded-pill py-2 px-4"><i class="fas fa-trash-alt me-2"></i> Delete</a>
+                    <a href="{% url 'category_detail' product.category.pk %}" class="btn btn-light border rounded-pill py-2 px-4">&larr; Back to {{ product.category.name }}</a>
+                </div>
+            </div>
         </div>
-    </article>
+    </div>
+</div>
+<!-- Single Product End -->
+
+{% if related_products %}
+<!-- Related Products Start -->
+<div class="container-fluid product bg-light py-5">
+    <div class="container py-5">
+        <h2 class="mb-5">More from {{ product.category.name }}</h2>
+        <div class="row g-4">
+            {% for product in related_products %}
+                <div class="col-md-6 col-lg-4 col-xl-3">
+                    {% include "shop/includes/product_card.html" %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+<!-- Related Products End -->
+{% endif %}
 {% endblock %}

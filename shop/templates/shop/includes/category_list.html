@@ -1,0 +1,15 @@
+{# კატეგორიების სია რაოდენობებით (ზედა მენიუს "All Categories") #}
+<ul class="list-unstyled categories-bars">
+    {% for category in categories %}
+        <li>
+            <div class="categories-bars-item">
+                <a href="{% url 'category_detail' category.pk %}">{{ category.name }}</a>
+                <span>({{ category.product_count }})</span>
+            </div>
+        </li>
+    {% empty %}
+        <li>
+            <div class="categories-bars-item"><span>No categories yet</span></div>
+        </li>
+    {% endfor %}
+</ul>

@@ -1,47 +1,69 @@
 {% load static %}<!DOCTYPE html>
-<html lang="ka">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
     <title>{% block title %}Mini Shop{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'shop/style.css' %}">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Libraries Stylesheet -->
+    <link href="{% static 'shop/lib/animate/animate.min.css' %}" rel="stylesheet">
+    <link href="{% static 'shop/lib/owlcarousel/assets/owl.carousel.min.css' %}" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="{% static 'shop/css/bootstrap.min.css' %}" rel="stylesheet">
+
+    <!-- Template Stylesheet (Electro) + ჩვენი დამატებითი სტილები -->
+    <link href="{% static 'shop/css/style.css' %}" rel="stylesheet">
+    <link href="{% static 'shop/css/custom.css' %}" rel="stylesheet">
 </head>
+
 <body>
-    <header class="site-header">
-        <div class="container header-inner">
-            <a class="logo" href="{% url 'home' %}">Mini<span>Shop</span></a>
-            <nav class="main-nav">
-                <a href="{% url 'home' %}">მთავარი</a>
-                <a href="{% url 'sale' %}" class="nav-sale">ფასდაკლება</a>
-            </nav>
+    <!-- Spinner -->
+    <div id="spinner" class="show bg-white position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+            <span class="sr-only">Loading...</span>
         </div>
-    </header>
+    </div>
 
-    <main class="container layout">
-        <aside class="sidebar">
-            <h2>კატეგორიები</h2>
-            <ul class="category-list">
-                {% for category in categories %}
-                    <li>
-                        <a href="{% url 'category_detail' category.pk %}"
-                           {% if category.pk == category_pk_active %}class="active"{% endif %}>
-                            {{ category.name }}
-                            <span class="count">({{ category.product_count }})</span>
-                        </a>
-                    </li>
-                {% empty %}
-                    <li class="muted">კატეგორიები ჯერ არ არის.</li>
-                {% endfor %}
-            </ul>
-        </aside>
+    {# საერთო ნაწილები ცალკე ფაილებშია: shop/includes/ #}
+    {% include "shop/includes/topbar.html" %}
+    {% include "shop/includes/navbar.html" %}
+    {% include "shop/includes/messages.html" %}
 
-        <section class="content">
-            {% block content %}{% endblock %}
-        </section>
-    </main>
+    {# გვერდის სათაური და breadcrumbs. მთავარი გვერდი ამ ბლოკს თავისით ანაცვლებს (carousel) #}
+    {% block header %}
+    <div class="container-fluid page-header py-5">
+        <h1 class="text-center text-white display-6 wow fadeInUp" data-wow-delay="0.1s">{% block page_title %}Mini Shop{% endblock %}</h1>
+        <ol class="breadcrumb justify-content-center mb-0 wow fadeInUp" data-wow-delay="0.3s">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+            {% block breadcrumbs %}{% endblock %}
+        </ol>
+    </div>
+    {% endblock %}
 
-    <footer class="site-footer">
-        <div class="container">Mini Shop &middot; Django Homework 36</div>
-    </footer>
+    {% block content %}{% endblock %}
+
+    {% include "shop/includes/footer.html" %}
+
+    <!-- Back to Top -->
+    <a href="#" class="btn btn-primary btn-lg-square back-to-top"><i class="fa fa-arrow-up"></i></a>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'shop/lib/wow/wow.min.js' %}"></script>
+    <script src="{% static 'shop/lib/owlcarousel/owl.carousel.min.js' %}"></script>
+
+    <!-- Template Javascript -->
+    <script src="{% static 'shop/js/main.js' %}"></script>
 </body>
 </html>

@@ -1,22 +1,21 @@
-{% extends "shop/base.html" %}
+{% extends "shop/shop_layout.html" %}
+{% load static %}
 
 {% block title %}{{ category.name }} · Mini Shop{% endblock %}
+{% block page_title %}{{ category.name }}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item active text-white">{{ category.name }}</li>
+{% endblock %}
 
-{% block content %}
-    <nav class="breadcrumbs">
-        <a href="{% url 'home' %}">მთავარი</a> / <span>{{ category.name }}</span>
-    </nav>
-
-    <div class="page-head">
-        <h1>{{ category.name }} <span class="count">({{ category.product_count }})</span></h1>
-        {% if category.description %}<p class="muted">{{ category.description }}</p>{% endif %}
-    </div>
-
-    <div class="grid">
-        {% for product in products %}
-            {% include "shop/_product_card.html" %}
-        {% empty %}
-            <p class="muted">ამ კატეგორიაში პროდუქტები ჯერ არ არის.</p>
-        {% endfor %}
+{% block list_banner %}
+    <div class="rounded mb-4 position-relative">
+        <img src="{% static 'shop/img/product-banner-3.jpg' %}" class="img-fluid rounded w-100" style="height: 250px; object-fit: cover;" alt="{{ category.name }}">
+        <div class="position-absolute rounded d-flex flex-column align-items-center justify-content-center text-center px-4" style="width: 100%; height: 250px; top: 0; left: 0; background: rgba(242, 139, 0, 0.3);">
+            <h3 class="display-4 text-white mb-3">{{ category.name }} <span class="fs-3">({{ category.product_count }})</span></h3>
+            {% if category.description %}<p class="text-white fs-5 mb-0">{{ category.description }}</p>{% endif %}
+        </div>
     </div>
 {% endblock %}
+
+{% block list_heading %}{{ category.name }}{% endblock %}
+{% block empty_text %}There are no products in this category yet.{% endblock %}
