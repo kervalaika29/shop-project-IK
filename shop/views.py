@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.generic import CreateView, DetailView, ListView, TemplateView
 
 from .forms import ProductForm
 from .models import Category, Product
@@ -20,100 +21,134 @@ def get_categories_with_products():
 
 
 # ---------------------------------------------------------------------------
-# გვერდები: ჩამონათვალი და დეტალები
+# გვერდები: ჩამონათვალი და დეტალები (Class-Based Views, HW39)
 # ---------------------------------------------------------------------------
 
-def home(request):
+class HomeView(ListView):
     """
     მთავარი გვერდი: ყველა პროდუქტი ფასის ზრდადობით.
     საძიებო ველიდან მოსულ ?q=... (სახელი) და ?category=... (კატეგორიის id)
     პარამეტრებით სია იფილტრება.
+
+    ListView თვითონ იღებს queryset-ს და შაბლონს აწვდის context_object_name-ით
+    ("products"). ფილტრაცია get_queryset-შია, დამატებითი მონაცემები კი
+    get_context_data-ში.
     """
-    products = Product.objects.select_related("category").order_by("price")
 
-    query = request.GET.get("q", "").strip()
-    category_id = request.GET.get("category", "")
-    if query:
-        products = products.filter(name__icontains=query)
-    if category_id.isdigit():
-        products = products.filter(category_id=int(category_id))
+    queryset = Product.objects.select_related("category").order_by("price")
+    template_name = "shop/home.html"
+    context_object_name = "products"
 
-    # ფასდაკლებული პროდუქტები მთავარი გვერდის სარეკლამო ბლოკებისთვის
-    on_sale = Product.objects.filter(has_discount=True).select_related("category")
-    context = {
-        "products": products,
-        "query": query,
-        "selected_category": int(category_id) if category_id.isdigit() else None,
-        "search_active": bool(query or category_id.isdigit()),
-        "featured_product": on_sale.order_by("-price").first(),
-        "offer_products": on_sale.order_by("price")[:2],
-    }
-    return render(request, "shop/home.html", context)
+    def get_query(self):
+        """საძიებო ტექსტი (?q=...), ზედმეტი გამოტოვებების გარეშე."""
+        return self.request.GET.get("q", "").strip()
+
+    def get_category_id(self):
+        """არჩეული კატეგორიის id (?category=...) ან None, თუ ციფრი არ არის."""
+        category_id = self.request.GET.get("category", "")
+        return int(category_id) if category_id.isdecimal() else None
+
+    def get_queryset(self):
+        products = super().get_queryset()
+        query = self.get_query()
+        category_id = self.get_category_id()
+        if query:
+            products = products.filter(name__icontains=query)
+        if category_id is not None:
+            products = products.filter(category_id=category_id)
+        return products
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        query = self.get_query()
+        category_id = self.get_category_id()
+        # ფასდაკლებული პროდუქტები მთავარი გვერდის სარეკლამო ბლოკებისთვის
+        on_sale = Product.objects.filter(has_discount=True).select_related("category")
+        context.update(
+            {
+                "query": query,
+                "selected_category": category_id,
+                "search_active": bool(query) or category_id is not None,
+                "featured_product": on_sale.order_by("-price").first(),
+                "offer_products": on_sale.order_by("price")[:2],
+            }
+        )
+        return context
 
 
-def category_detail(request, pk):
+class CategoryDetailView(DetailView):
     """კონკრეტული კატეგორიის გვერდი: მხოლოდ ამ კატეგორიის პროდუქტები."""
-    category = get_object_or_404(
-        Category.objects.annotate(product_count=Count("products")), pk=pk
-    )
-    products = category.products.select_related("category").order_by("price")
-    context = {
-        "category": category,
-        "category_pk_active": category.pk,
-        "products": products,
-    }
-    return render(request, "shop/category_detail.html", context)
+
+    queryset = Category.objects.annotate(product_count=Count("products"))
+    template_name = "shop/category_detail.html"
+    context_object_name = "category"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["category_pk_active"] = self.object.pk
+        context["products"] = self.object.products.select_related("category").order_by(
+            "price"
+        )
+        return context
 
 
-def sale(request):
+class SaleView(ListView):
     """ფასდაკლებული პროდუქტების გვერდი."""
-    products = (
+
+    queryset = (
         Product.objects.filter(has_discount=True)
         .select_related("category")
         .order_by("price")
     )
-    return render(request, "shop/sale.html", {"products": products})
+    template_name = "shop/sale.html"
+    context_object_name = "products"
 
 
-def product_detail(request, pk):
+class ProductDetailView(DetailView):
     """პროდუქტის დეტალური გვერდი + იმავე კატეგორიის სხვა პროდუქტები."""
-    product = get_object_or_404(Product.objects.select_related("category"), pk=pk)
-    related_products = (
-        Product.objects.filter(category=product.category)
-        .exclude(pk=product.pk)
-        .select_related("category")
-        .order_by("price")[:4]
-    )
-    context = {
-        "product": product,
-        "category_pk_active": product.category_id,
-        "related_products": related_products,
-    }
-    return render(request, "shop/product_detail.html", context)
+
+    queryset = Product.objects.select_related("category")
+    template_name = "shop/product_detail.html"
+    context_object_name = "product"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        product = self.object
+        context["category_pk_active"] = product.category_id
+        context["related_products"] = (
+            Product.objects.filter(category=product.category)
+            .exclude(pk=product.pk)
+            .select_related("category")
+            .order_by("price")[:4]
+        )
+        return context
 
 
 # ---------------------------------------------------------------------------
 # პროდუქტის დამატება / განახლება / წაშლა (CRUD)
 # ---------------------------------------------------------------------------
 
-def product_create(request):
+class ProductCreateView(CreateView):
     """
     პროდუქტის დამატება.
     GET  - ცარიელი ფორმის ჩვენება.
-    POST - მონაცემების შემოწმება; თუ სწორია, ვინახავთ და პროდუქტის გვერდზე გადავდივართ,
+    POST - მონაცემების შემოწმება; თუ სწორია, CreateView ინახავს და პროდუქტის
+           გვერდზე გადადის (მისამართს იღებს product.get_absolute_url()-იდან),
            თუ არა და ფორმა შეცდომებით ისევ გამოჩნდება.
     """
-    if request.method == "POST":
-        form = ProductForm(request.POST)
-        if form.is_valid():
-            product = form.save()
-            messages.success(request, f"Product “{product.name}” was added.")
-            return redirect(product)  # product.get_absolute_url()
-    else:
-        form = ProductForm()
-    context = {"form": form, "is_edit": False}
-    return render(request, "shop/product_form.html", context)
 
+    model = Product
+    form_class = ProductForm
+    template_name = "shop/product_form.html"
+    extra_context = {"is_edit": False}
+
+    def form_valid(self, form):
+        response = super().form_valid(form)  # აქ შეინახა და self.object შეიქმნა
+        messages.success(self.request, f"Product “{self.object.name}” was added.")
+        return response
+
+
+# დავალების პირობით update და delete კვლავ ჩვეულებრივი (function-based) view-ებია.
 
 def product_update(request, pk):
     """
@@ -155,13 +190,13 @@ def product_delete(request, pk):
 # შაბლონის დანარჩენი გვერდები (ლოგიკის გარეშე, მხოლოდ დიზაინი)
 # ---------------------------------------------------------------------------
 
-def cart(request):
-    return render(request, "shop/cart.html")
+class CartView(TemplateView):
+    template_name = "shop/cart.html"
 
 
-def checkout(request):
-    return render(request, "shop/checkout.html")
+class CheckoutView(TemplateView):
+    template_name = "shop/checkout.html"
 
 
-def contact(request):
-    return render(request, "shop/contact.html")
+class ContactView(TemplateView):
+    template_name = "shop/contact.html"

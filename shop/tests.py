@@ -2,7 +2,8 @@ from decimal import Decimal
 
 from django.contrib.staticfiles import finders
 from django.test import Client, TestCase
-from django.urls import reverse
+from django.urls import resolve, reverse
+from django.views.generic import CreateView, DetailView, ListView, TemplateView
 
 from .models import CATEGORY_IMAGES, DEFAULT_IMAGES, Category, Product
 
@@ -360,6 +361,55 @@ class ProductDeleteTests(ShopTestCase):
         response = strict_client.post(self.url(self.mid))
         self.assertEqual(response.status_code, 403)
         self.assertTrue(Product.objects.filter(pk=self.mid.pk).exists())
+
+
+class ClassBasedViewsTests(ShopTestCase):
+    """HW39: view-ები Class-Based View-ებია, გარდა update-ისა და delete-ისა."""
+
+    def view_of(self, name, *args):
+        return resolve(reverse(name, args=args)).func
+
+    def test_converted_views_use_expected_generic_classes(self):
+        expected = {
+            "home": (ListView, []),
+            "sale": (ListView, []),
+            "category_detail": (DetailView, [self.laptops.pk]),
+            "product_detail": (DetailView, [self.cheap.pk]),
+            "product_create": (CreateView, []),
+            "cart": (TemplateView, []),
+            "checkout": (TemplateView, []),
+            "contact": (TemplateView, []),
+        }
+        for name, (base_class, args) in expected.items():
+            with self.subTest(view=name):
+                view_class = getattr(self.view_of(name, *args), "view_class", None)
+                self.assertIsNotNone(view_class, f"{name} is not a class-based view")
+                self.assertTrue(issubclass(view_class, base_class))
+
+    def test_update_and_delete_stay_function_based(self):
+        for name in ("product_update", "product_delete"):
+            with self.subTest(view=name):
+                view = self.view_of(name, self.mid.pk)
+                self.assertFalse(hasattr(view, "view_class"))
+
+    def test_read_only_pages_do_not_accept_post(self):
+        urls = [
+            reverse("home"),
+            reverse("sale"),
+            reverse("category_detail", args=[self.laptops.pk]),
+            reverse("product_detail", args=[self.cheap.pk]),
+            reverse("cart"),
+            reverse("checkout"),
+            reverse("contact"),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertEqual(self.client.post(url).status_code, 405)
+
+    def test_non_ascii_digit_in_category_parameter_is_ignored(self):
+        response = self.client.get(reverse("home"), {"category": "²"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["products"]), 3)
 
 
 class PlaceholderImageTests(ShopTestCase):
