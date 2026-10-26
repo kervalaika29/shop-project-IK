@@ -73,7 +73,7 @@
                             <h3 class="text-primary">{{ product.name }}</h3>
                             <h1 class="display-5 text-secondary mb-0">{{ product.price }} <span class="text-primary fw-normal">₾</span></h1>
                         </div>
-                        <img src="{% static product.placeholder_image %}" class="img-fluid offer-img" alt="{{ product.name }}">
+                        <img src="{{ product.image_url }}" class="img-fluid offer-img" alt="{{ product.name }}">
                     </a>
                 </div>
             {% endfor %}

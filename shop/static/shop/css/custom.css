@@ -61,3 +61,15 @@
     height: 80px;
     background: rgba(220, 53, 69, 0.12);
 }
+
+/* მენიუში Logout: ეს <button>-ია (გასვლა POST-ით ხდება), მაგრამ ჩვეულებრივ ბმულს უნდა ჰგავდეს */
+.nav-bar .navbar .navbar-nav .nav-link-button {
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+/* სურათის არჩევის ველის ქვეშ ჩეკბოქსი ("Clear") ლამაზად განლაგდეს */
+.form-item input[type="checkbox"] {
+    margin: 0 4px 0 8px;
+}

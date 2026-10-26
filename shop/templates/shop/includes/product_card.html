@@ -1,9 +1,9 @@
-{% load static %}
+{% load shop_tags %}
 {# ერთი პროდუქტის ბარათი. გამოიყენება მთავარ, კატეგორიის, ფასდაკლების და დეტალურ გვერდზე. #}
 <div class="product-item rounded wow fadeInUp" data-wow-delay="0.1s">
     <div class="product-item-inner border rounded">
         <div class="product-item-inner-item">
-            <img src="{% static product.placeholder_image %}" class="img-fluid w-100 rounded-top" alt="{{ product.name }}">
+            <img src="{{ product.image_url }}" class="img-fluid w-100 rounded-top" alt="{{ product.name }}">
             {% if product.has_discount %}<div class="product-sale">SALE</div>{% endif %}
             <div class="product-details">
                 <a href="{% url 'product_detail' product.pk %}" title="View details"><i class="fa fa-eye fa-1x"></i></a>
@@ -15,12 +15,16 @@
             <span class="text-primary fs-5">{{ product.price }} ₾</span>
         </div>
     </div>
-    {# ეს ბლოკი ბარათზე მაუსის მიტანისას ჩანს: დეტალები, რედაქტირება, წაშლა #}
+    {# ეს ბლოკი ბარათზე მაუსის მიტანისას ჩანს: დეტალები და (მხოლოდ მფლობელისთვის) რედაქტირება/წაშლა #}
     <div class="product-item-add border border-top-0 rounded-bottom text-center p-4 pt-0">
-        <a href="{% url 'product_detail' product.pk %}" class="btn btn-primary border-secondary rounded-pill py-2 px-4 mb-4"><i class="fas fa-eye me-2"></i> View Details</a>
-        <div class="product-actions d-flex justify-content-between align-items-center">
-            <a href="{% url 'product_update' product.pk %}" class="text-primary"><i class="fas fa-pencil-alt me-1"></i> Edit</a>
-            <a href="{% url 'product_delete' product.pk %}" class="text-danger"><i class="fas fa-trash-alt me-1"></i> Delete</a>
-        </div>
+        {% if product|is_owned_by:user %}
+            <a href="{% url 'product_detail' product.pk %}" class="btn btn-primary border-secondary rounded-pill py-2 px-4 mb-4"><i class="fas fa-eye me-2"></i> View Details</a>
+            <div class="product-actions d-flex justify-content-between align-items-center">
+                <a href="{% url 'product_update' product.pk %}" class="text-primary"><i class="fas fa-pencil-alt me-1"></i> Edit</a>
+                <a href="{% url 'product_delete' product.pk %}" class="text-danger"><i class="fas fa-trash-alt me-1"></i> Delete</a>
+            </div>
+        {% else %}
+            <a href="{% url 'product_detail' product.pk %}" class="btn btn-primary border-secondary rounded-pill py-2 px-4"><i class="fas fa-eye me-2"></i> View Details</a>
+        {% endif %}
     </div>
 </div>

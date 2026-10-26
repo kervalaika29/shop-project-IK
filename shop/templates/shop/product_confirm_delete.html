@@ -19,7 +19,7 @@
                         <i class="fas fa-trash-alt fa-2x text-danger"></i>
                     </div>
                     <h2 class="mb-3">Delete this product?</h2>
-                    <img src="{% static product.placeholder_image %}" class="img-fluid mb-3" style="max-height: 160px;" alt="{{ product.name }}">
+                    <img src="{{ product.image_url }}" class="img-fluid mb-3" style="max-height: 160px;" alt="{{ product.name }}">
                     <h4 class="mb-1">{{ product.name }}</h4>
                     <p class="text-muted mb-1">{{ product.category.name }}</p>
                     <p class="text-primary fs-5 mb-4">{{ product.price }} ₾</p>

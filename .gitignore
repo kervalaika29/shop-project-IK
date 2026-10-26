@@ -17,3 +17,5 @@ Thumbs.db
 
 # NOTE: db.sqlite3 is intentionally NOT ignored,
 # so the filled database is uploaded to GitHub for checking.
+# NOTE: the media/ folder (uploaded product images) is intentionally NOT ignored either,
+# so the images referenced in db.sqlite3 are uploaded together with it.

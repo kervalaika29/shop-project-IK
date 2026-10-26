@@ -1,5 +1,5 @@
 {% extends "shop/base.html" %}
-{% load static %}
+{% load shop_tags %}
 
 {% block title %}{{ product.name }} · Mini Shop{% endblock %}
 {% block page_title %}{{ product.name }}{% endblock %}
@@ -15,7 +15,7 @@
         <div class="row g-5">
             <div class="col-lg-6 wow fadeInLeft" data-wow-delay="0.1s">
                 <div class="border rounded p-4 position-relative text-center detail-image">
-                    <img src="{% static product.placeholder_image %}" class="img-fluid w-100" alt="{{ product.name }}">
+                    <img src="{{ product.image_url }}" class="img-fluid w-100" alt="{{ product.name }}">
                     {% if product.has_discount %}
                         <div class="detail-sale-badge">SALE</div>
                     {% endif %}
@@ -39,12 +39,16 @@
                 <ul class="list-unstyled mb-4">
                     <li class="py-2 border-bottom d-flex justify-content-between"><span class="text-muted">Category</span><span>{{ product.category.name }}</span></li>
                     <li class="py-2 border-bottom d-flex justify-content-between"><span class="text-muted">Discount</span><span>{% if product.has_discount %}<strong class="text-secondary">Yes</strong>{% else %}No{% endif %}</span></li>
+                    <li class="py-2 border-bottom d-flex justify-content-between"><span class="text-muted">Added by</span><span>{% if product.user %}{{ product.user.username }}{% else %}Mini Shop catalog{% endif %}</span></li>
                     <li class="py-2 border-bottom d-flex justify-content-between"><span class="text-muted">Product ID</span><span>#{{ product.pk }}</span></li>
                 </ul>
 
                 <div class="d-flex flex-wrap gap-3">
-                    <a href="{% url 'product_update' product.pk %}" class="btn btn-primary rounded-pill py-2 px-4"><i class="fas fa-pencil-alt me-2"></i> Edit</a>
-                    <a href="{% url 'product_delete' product.pk %}" class="btn btn-outline-danger rounded-pill py-2 px-4"><i class="fas fa-trash-alt me-2"></i> Delete</a>
+                    {# Edit და Delete ჩანს მხოლოდ იმ მომხმარებლისთვის, ვინც პროდუქტი დაამატა #}
+                    {% if product|is_owned_by:user %}
+                        <a href="{% url 'product_update' product.pk %}" class="btn btn-primary rounded-pill py-2 px-4"><i class="fas fa-pencil-alt me-2"></i> Edit</a>
+                        <a href="{% url 'product_delete' product.pk %}" class="btn btn-outline-danger rounded-pill py-2 px-4"><i class="fas fa-trash-alt me-2"></i> Delete</a>
+                    {% endif %}
                     <a href="{% url 'category_detail' product.category.pk %}" class="btn btn-light border rounded-pill py-2 px-4">&larr; Back to {{ product.category.name }}</a>
                 </div>
             </div>

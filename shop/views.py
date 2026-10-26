@@ -1,4 +1,7 @@
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import CreateView, DetailView, ListView, TemplateView
@@ -107,7 +110,7 @@ class SaleView(ListView):
 class ProductDetailView(DetailView):
     """პროდუქტის დეტალური გვერდი + იმავე კატეგორიის სხვა პროდუქტები."""
 
-    queryset = Product.objects.select_related("category")
+    queryset = Product.objects.select_related("category", "user")
     template_name = "shop/product_detail.html"
     context_object_name = "product"
 
@@ -128,13 +131,17 @@ class ProductDetailView(DetailView):
 # პროდუქტის დამატება / განახლება / წაშლა (CRUD)
 # ---------------------------------------------------------------------------
 
-class ProductCreateView(CreateView):
+class ProductCreateView(LoginRequiredMixin, CreateView):
     """
-    პროდუქტის დამატება.
+    პროდუქტის დამატება. მხოლოდ სისტემაში შესული მომხმარებლისთვის (LoginRequiredMixin):
+    ანონიმური მომხმარებელი შესვლის გვერდზე გადადის (LOGIN_URL), შესვლის შემდეგ კი
+    ?next=... მისამართით ისევ დამატების გვერდზე ბრუნდება.
+
     GET  - ცარიელი ფორმის ჩვენება.
     POST - მონაცემების შემოწმება; თუ სწორია, CreateView ინახავს და პროდუქტის
            გვერდზე გადადის (მისამართს იღებს product.get_absolute_url()-იდან),
            თუ არა და ფორმა შეცდომებით ისევ გამოჩნდება.
+    ატვირთული სურათი request.FILES-შია; CreateView ფორმას მას თვითონ გადასცემს.
     """
 
     model = Product
@@ -142,7 +149,14 @@ class ProductCreateView(CreateView):
     template_name = "shop/product_form.html"
     extra_context = {"is_edit": False}
 
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            messages.info(self.request, "Please log in to add a product.")
+        return super().handle_no_permission()
+
     def form_valid(self, form):
+        # მფლობელს ფორმიდან არ ვიღებთ: ვწერთ იმ მომხმარებელს, ვინც ახლა შესულია სისტემაში
+        form.instance.user = self.request.user
         response = super().form_valid(form)  # აქ შეინახა და self.object შეიქმნა
         messages.success(self.request, f"Product “{self.object.name}” was added.")
         return response
@@ -150,14 +164,29 @@ class ProductCreateView(CreateView):
 
 # დავალების პირობით update და delete კვლავ ჩვეულებრივი (function-based) view-ებია.
 
+def get_product_for_owner(request, pk):
+    """
+    პროდუქტს იღებს განახლებისთვის ან წაშლისთვის და ამოწმებს, რომ ის ამ მომხმარებელს ეკუთვნის.
+    არარსებულ პროდუქტზე 404, სხვისზე (ან უმფლობელო პროდუქტზე) კი 403 (PermissionDenied).
+    ფუნქცია მხოლოდ @login_required view-ებიდან გამოიძახება, ამიტომ request.user ყოველთვის შესულია.
+    """
+    product = get_object_or_404(Product.objects.select_related("category"), pk=pk)
+    if not product.is_owned_by(request.user):
+        raise PermissionDenied("Only the user who added a product can change or delete it.")
+    return product
+
+
+@login_required
 def product_update(request, pk):
     """
-    პროდუქტის განახლება. ფორმა არსებული პროდუქტის მონაცემებით ივსება (instance=product),
-    შენახვისას კი ახალი პროდუქტი არ იქმნება, არამედ ეს იგივე ჩანაწერი განახლდება.
+    პროდუქტის განახლება (მხოლოდ მფლობელისთვის). ფორმა არსებული პროდუქტის მონაცემებით ივსება
+    (instance=product), შენახვისას კი ახალი პროდუქტი არ იქმნება, არამედ ეს იგივე ჩანაწერი
+    განახლდება. request.FILES-ით ახალი სურათიც მოდის (სურათის შეცვლა/წაშლა).
+    user ველი ფორმაში არ არის, ამიტომ მფლობელი განახლებისას არ იცვლება.
     """
-    product = get_object_or_404(Product, pk=pk)
+    product = get_product_for_owner(request, pk)
     if request.method == "POST":
-        form = ProductForm(request.POST, instance=product)
+        form = ProductForm(request.POST, request.FILES, instance=product)
         if form.is_valid():
             product = form.save()
             messages.success(request, f"Product “{product.name}” was updated.")
@@ -168,15 +197,16 @@ def product_update(request, pk):
     return render(request, "shop/product_form.html", context)
 
 
+@login_required
 def product_delete(request, pk):
     """
-    პროდუქტის წაშლა.
+    პროდუქტის წაშლა (მხოლოდ მფლობელისთვის).
     GET  - დადასტურების გვერდი ("ნამდვილად გსურთ წაშლა?"), არაფერი იშლება.
     POST - პროდუქტი იშლება მხოლოდ დადასტურების ღილაკზე დაჭერისას.
     წაშლა მხოლოდ POST-ით ხდება, რომ მისამართზე შემთხვევით გადასვლამ ან ბმულის
     გახსნამ ჩანაწერი არ წაშალოს.
     """
-    product = get_object_or_404(Product.objects.select_related("category"), pk=pk)
+    product = get_product_for_owner(request, pk)
     if request.method == "POST":
         name = product.name
         product.delete()

@@ -31,6 +31,17 @@
                             <a href="{% url 'checkout' %}" class="nav-item nav-link {% if current == 'checkout' %}active{% endif %}">Checkout</a>
                             <a href="{% url 'contact' %}" class="nav-item nav-link me-2 {% if current == 'contact' %}active{% endif %}">Contact</a>
                         {% endwith %}
+                        {# ანონიმურს: Login / Register. შესულს: მისი სახელი და Logout (POST ფორმა, CSRF-ით) #}
+                        {% if user.is_authenticated %}
+                            <span class="nav-item nav-link text-dark ms-lg-2" title="Logged in as {{ user.username }}"><i class="fas fa-user me-2"></i>{{ user.username }}</span>
+                            <form method="post" action="{% url 'logout' %}" class="nav-item d-flex align-items-center">
+                                {% csrf_token %}
+                                <button type="submit" class="nav-link nav-link-button me-2"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+                            </form>
+                        {% else %}
+                            <a href="{% url 'login' %}" class="nav-item nav-link ms-lg-2 {% if request.resolver_match.url_name == 'login' %}active{% endif %}">Login</a>
+                            <a href="{% url 'register' %}" class="nav-item nav-link me-2 {% if request.resolver_match.url_name == 'register' %}active{% endif %}">Register</a>
+                        {% endif %}
                         <div class="nav-item dropdown d-block d-lg-none mb-3">
                             <a href="#" class="nav-link" data-bs-toggle="dropdown"><span class="dropdown-toggle">All Category</span></a>
                             <div class="dropdown-menu m-0">
@@ -38,6 +49,7 @@
                             </div>
                         </div>
                     </div>
+                    {# ანონიმურს ეს ბმული შესვლის გვერდზე გადაიყვანს, შესვლის შემდეგ კი დამატების ფორმაზე დააბრუნებს #}
                     <a href="{% url 'product_create' %}" class="btn btn-secondary rounded-pill py-2 px-4 px-lg-3 mb-3 mb-md-3 mb-lg-0"><i class="fa fa-plus me-2"></i> Add Product</a>
                 </div>
             </nav>

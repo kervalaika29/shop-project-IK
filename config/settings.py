@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "shop",
+    "users",
 ]
 
 MIDDLEWARE = [
@@ -120,6 +121,24 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = "static/"
+
+
+# Media files (მომხმარებლის მიერ ატვირთული ფაილები: პროდუქტის სურათები)
+# https://docs.djangoproject.com/en/6.1/topics/files/
+# სურათები ინახება media/products/ საქაღალდეში, ბრაუზერში კი /media/... მისამართით იხსნება.
+
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+
+# Authentication (შესვლა / გასვლა)
+# https://docs.djangoproject.com/en/6.1/ref/settings/#login-url
+
+# სად გადავიდეს ანონიმური მომხმარებელი, როცა დაცულ გვერდს ხსნის (@login_required და ა.შ.)
+LOGIN_URL = "login"
+# შესვლის (თუ ?next= არ არის) და გასვლის შემდეგ მთავარ გვერდზე გადავდივართ
+LOGIN_REDIRECT_URL = "home"
+LOGOUT_REDIRECT_URL = "home"
 
 
 # Messages (შეტყობინებები: "პროდუქტი დაემატა" და ა.შ.)
