@@ -1,3 +1,4 @@
+import contextlib
 import io
 import os
 import shutil
@@ -8,17 +9,38 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.staticfiles import finders
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TestCase, override_settings
+from django.core.paginator import Paginator
+from django.db.models.signals import post_save
+from django.http import HttpResponse
+from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import resolve, reverse
 from django.views.generic import CreateView, DetailView, ListView, TemplateView
 from PIL import Image
 
+from .middleware import MaintenanceModeMiddleware
 from .models import CATEGORY_IMAGES, DEFAULT_IMAGES, Category, Product
+from .templatetags.shop_tags import pagination
+from .views import CategoryDetailView, HomeView, SaleView
 
 User = get_user_model()
 
 
-class ShopTestCase(TestCase):
+class SilentStdoutMixin:
+    """
+    HW42-ის სიგნალი პროდუქტის ყოველ განახლებაზე ტერმინალში წერს: Product "..." was updated.
+    ტესტებში ეს ტექსტი ტესტების წერტილებს ერეოდა, ამიტომ კლასის ტესტების დროს stdout
+    დუმდება. სიგნალის ტესტები თავიანთ ტექსტს ცალკე იჭერენ (redirect_stdout).
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        redirect = contextlib.redirect_stdout(io.StringIO())
+        redirect.__enter__()
+        cls.addClassCleanup(redirect.__exit__, None, None, None)
+
+
+class ShopTestCase(SilentStdoutMixin, TestCase):
     """
     საერთო საწყისი მონაცემები ყველა ტესტისთვის: ორი მომხმარებელი (owner და other)
     და სამი პროდუქტი, რომელიც owner-ს ეკუთვნის.
@@ -943,3 +965,398 @@ class UrlsAndSettingsTests(ShopTestCase):
         from django.conf import settings
 
         self.assertEqual(settings.AUTH_USER_MODEL, "auth.User")
+
+
+# ---------------------------------------------------------------------------
+# HW42: პაგინაცია, ტექნიკური სამუშაოების middleware, პროდუქტის განახლების სიგნალი
+# ---------------------------------------------------------------------------
+
+
+class PaginationTests(ShopTestCase):
+    """
+    პაგინაცია მთავარ (8 პროდუქტი გვერდზე), კატეგორიის და sale (6 პროდუქტი) გვერდებზე.
+
+    საწყისი 3 პროდუქტის გარდა ვამატებთ კატეგორიას "Many" 15 ფასდაკლებული პროდუქტით:
+    - მთავარი: 3 + 15 = 18 პროდუქტი = 3 გვერდი (8 + 8 + 2),
+    - "Many" კატეგორია: 15 პროდუქტი = 3 გვერდი (6 + 6 + 3),
+    - sale: 1 + 15 = 16 პროდუქტი = 3 გვერდი (6 + 6 + 4).
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.many = Category.objects.create(name="Many")
+        Product.objects.bulk_create(
+            Product(
+                name=f"Many {i:02d}",
+                price=Decimal(1000 + i),
+                category=cls.many,
+                has_discount=True,
+                user=cls.owner,
+            )
+            for i in range(1, 16)
+        )
+
+    def names(self, response):
+        return [product.name for product in response.context["products"]]
+
+    def category_url(self):
+        return reverse("category_detail", args=[self.many.pk])
+
+    def test_page_sizes(self):
+        self.assertEqual(HomeView.paginate_by, 8)
+        self.assertEqual(CategoryDetailView.paginate_by, 6)
+        self.assertEqual(SaleView.paginate_by, 6)
+
+    # --- მთავარი გვერდი -------------------------------------------------
+
+    def test_home_first_page_has_8_products(self):
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["products"]), 8)
+        self.assertEqual(response.context["page_obj"].number, 1)
+        self.assertTrue(response.context["is_paginated"])
+        self.assertEqual(response.context["paginator"].count, 18)
+        self.assertEqual(response.context["paginator"].num_pages, 3)
+
+    def test_home_last_page_has_the_rest(self):
+        response = self.client.get(reverse("home"), {"page": 3})
+        self.assertEqual(self.names(response), ["Many 15", "Expensive laptop"])
+
+    def test_home_pages_together_show_every_product_once_in_price_order(self):
+        products = []
+        for number in (1, 2, 3):
+            response = self.client.get(reverse("home"), {"page": number})
+            products += list(response.context["products"])
+        self.assertEqual(len(products), 18)
+        self.assertEqual(len({p.pk for p in products}), 18)  # გამეორებების გარეშე
+        prices = [p.price for p in products]
+        self.assertEqual(prices, sorted(prices))  # ფასის ზრდადობა გვერდებს შორისაც ნარჩუნდება
+
+    def test_home_heading_shows_total_not_page_size(self):
+        for page in (1, 3):
+            with self.subTest(page=page):
+                response = self.client.get(reverse("home"), {"page": page})
+                self.assertContains(response, "· 18 products")
+
+    def test_pagination_links_on_first_middle_and_last_page(self):
+        first = self.client.get(reverse("home"))
+        self.assertContains(first, 'href="?page=2"')
+        self.assertContains(first, 'aria-label="Next page"')
+        self.assertNotContains(first, 'aria-label="Previous page"')
+        self.assertContains(first, '<a class="active rounded" aria-current="page">1</a>')
+        self.assertContains(first, "Showing 1–8 of 18 products")
+
+        middle = self.client.get(reverse("home"), {"page": 2})
+        self.assertContains(middle, 'aria-label="Previous page"')
+        self.assertContains(middle, 'aria-label="Next page"')
+        self.assertContains(middle, 'href="?page=1"')
+        self.assertContains(middle, 'href="?page=3"')
+        self.assertContains(middle, '<a class="active rounded" aria-current="page">2</a>')
+        self.assertContains(middle, "Showing 9–16 of 18 products")
+
+        last = self.client.get(reverse("home"), {"page": 3})
+        self.assertContains(last, 'aria-label="Previous page"')
+        self.assertNotContains(last, 'aria-label="Next page"')
+        self.assertContains(last, "Showing 17–18 of 18 products")
+
+    def test_search_parameters_survive_page_links(self):
+        response = self.client.get(reverse("home"), {"q": "Many", "page": 1})
+        self.assertEqual(response.context["paginator"].count, 15)
+        self.assertContains(response, "15 products found")
+        self.assertContains(response, 'href="?q=Many&amp;page=2"')
+
+        response = self.client.get(
+            reverse("home"), {"q": "Many", "category": self.many.pk, "page": 2}
+        )
+        self.assertEqual(len(response.context["products"]), 7)
+        # page არ მეორდება: ძველი მნიშვნელობა იცვლება ახლით
+        self.assertContains(
+            response, f'href="?q=Many&amp;category={self.many.pk}&amp;page=1"'
+        )
+        self.assertNotContains(response, "page=2&amp;page=")
+
+    def test_search_with_no_results_has_no_pagination(self):
+        response = self.client.get(reverse("home"), {"q": "zzz-nothing"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["paginator"].count, 0)
+        self.assertContains(response, "No products match your search.")
+        self.assertNotContains(response, 'class="pagination')
+
+    # --- კატეგორიის გვერდი ---------------------------------------------
+
+    def test_category_page_is_paginated(self):
+        first = self.client.get(self.category_url())
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(len(first.context["products"]), 6)
+        self.assertEqual(self.names(first)[0], "Many 01")
+        self.assertTrue(first.context["is_paginated"])
+        self.assertEqual(first.context["paginator"].count, 15)
+        self.assertContains(first, "· 15 products")
+        self.assertContains(first, 'href="?page=2"')
+
+        last = self.client.get(self.category_url(), {"page": 3})
+        self.assertEqual(self.names(last), ["Many 13", "Many 14", "Many 15"])
+        self.assertContains(last, "Showing 13–15 of 15 products")
+
+    def test_category_pages_contain_only_this_category(self):
+        for number in (1, 2, 3):
+            response = self.client.get(self.category_url(), {"page": number})
+            for product in response.context["products"]:
+                self.assertEqual(product.category, self.many)
+
+    # --- sale გვერდი ---------------------------------------------------
+
+    def test_sale_page_is_paginated(self):
+        first = self.client.get(reverse("sale"))
+        self.assertEqual(len(first.context["products"]), 6)
+        self.assertEqual(first.context["paginator"].count, 16)
+        self.assertContains(first, "· 16 products")
+
+        last = self.client.get(reverse("sale"), {"page": 3})
+        self.assertEqual(len(last.context["products"]), 4)
+        for product in last.context["products"]:
+            self.assertTrue(product.has_discount)
+
+    # --- შეცდომები და განსაკუთრებული შემთხვევები -----------------------
+
+    def test_invalid_page_returns_404_everywhere(self):
+        for url in (reverse("home"), self.category_url(), reverse("sale")):
+            for bad_page in ("99", "0", "-1", "abc"):
+                with self.subTest(url=url, page=bad_page):
+                    response = self.client.get(url, {"page": bad_page})
+                    self.assertEqual(response.status_code, 404)
+
+    def test_empty_page_parameter_means_first_page(self):
+        for url in (reverse("home"), self.category_url(), reverse("sale")):
+            with self.subTest(url=url):
+                response = self.client.get(url, {"page": ""})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["page_obj"].number, 1)
+
+    def test_page_with_a_single_page_of_products_has_no_pagination_block(self):
+        # "Laptops" კატეგორიაში მხოლოდ 2 პროდუქტია
+        response = self.client.get(reverse("category_detail", args=[self.laptops.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["is_paginated"])
+        self.assertEqual(len(response.context["products"]), 2)
+        self.assertNotContains(response, 'class="pagination')
+        self.assertNotContains(response, "Showing ")
+
+    def test_page_numbers_are_shortened_with_dots_when_there_are_many_pages(self):
+        page = Paginator(range(200), 8).page(13)  # 25 გვერდი, ვართ მე-13-ზე
+        request = RequestFactory().get("/", {"q": "x", "page": 13})
+        context = pagination({"request": request}, page)
+        shown = ["..." if item.get("gap") else item["number"] for item in context["pages"]]
+        self.assertEqual(shown, [1, "...", 11, 12, 13, 14, 15, "...", 25])
+        self.assertEqual(context["querystring"], "q=x")
+
+
+class MaintenanceModeTests(ShopTestCase):
+    """MAINTENANCE_MODE = True-ზე ყველაფერი იკეტება, გარდა /admin/-ისა."""
+
+    MESSAGE = "Site is under maintenance"
+
+    def test_shipped_default_is_off(self):
+        # პროექტის settings.py-ში (override_settings-ის გარეშე) რეჟიმი გამორთული უნდა იყოს
+        from config import settings as project_settings
+
+        self.assertIs(project_settings.MAINTENANCE_MODE, False)
+
+    def test_middleware_is_registered_in_settings(self):
+        from django.conf import settings
+
+        middleware = settings.MIDDLEWARE
+        name = "shop.middleware.MaintenanceModeMiddleware"
+        self.assertIn(name, middleware)
+        # CommonMiddleware-ის შემდეგ ("/admin" -> "/admin/"), CSRF/Auth-ის წინ (ბაზას არ ვეხებით)
+        self.assertGreater(middleware.index(name), middleware.index("django.middleware.common.CommonMiddleware"))
+        self.assertLess(middleware.index(name), middleware.index("django.middleware.csrf.CsrfViewMiddleware"))
+        self.assertLess(
+            middleware.index(name),
+            middleware.index("django.contrib.auth.middleware.AuthenticationMiddleware"),
+        )
+
+    def test_site_works_normally_when_mode_is_off(self):
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, self.MESSAGE)
+
+    @override_settings(MAINTENANCE_MODE=True)
+    def test_every_page_shows_the_maintenance_message(self):
+        urls = [
+            reverse("home"),
+            reverse("sale"),
+            reverse("category_detail", args=[self.laptops.pk]),
+            reverse("product_detail", args=[self.cheap.pk]),
+            reverse("product_create"),
+            reverse("product_update", args=[self.cheap.pk]),
+            reverse("cart"),
+            reverse("checkout"),
+            reverse("contact"),
+            reverse("login"),
+            reverse("register"),
+            "/no/such/page/",  # არარსებული გვერდიც
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                # 503 Service Unavailable: "დროებით მიუწვდომელია"
+                self.assertContains(response, self.MESSAGE, status_code=503)
+
+    @override_settings(MAINTENANCE_MODE=True)
+    def test_post_requests_are_blocked_too(self):
+        self.client.force_login(self.owner)
+        response = self.client.post(
+            reverse("product_create"),
+            {"name": "Sneaky", "category": self.laptops.pk, "price": "10"},
+        )
+        self.assertContains(response, self.MESSAGE, status_code=503)
+        self.assertFalse(Product.objects.filter(name="Sneaky").exists())
+
+    @override_settings(MAINTENANCE_MODE=True)
+    def test_logged_in_users_see_maintenance_too(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, self.MESSAGE, status_code=503)
+
+    @override_settings(MAINTENANCE_MODE=True)
+    def test_admin_keeps_working(self):
+        # ანონიმურს admin-ის შესვლის გვერდი უხსნება და არა "maintenance"
+        response = self.client.get("/admin/login/")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, self.MESSAGE)
+        self.assertRedirects(self.client.get("/admin/"), "/admin/login/?next=/admin/")
+
+        # შესული ადმინისტრატორი admin-ის გვერდებს ჩვეულებრივ ხედავს
+        boss = User.objects.create(username="boss", is_staff=True, is_superuser=True)
+        self.client.force_login(boss)
+        for url in (
+            "/admin/",
+            "/admin/shop/product/",
+            f"/admin/shop/product/{self.cheap.pk}/change/",
+        ):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertNotContains(response, self.MESSAGE)
+
+    @override_settings(MAINTENANCE_MODE=True)
+    def test_admin_url_without_trailing_slash_is_not_blocked(self):
+        response = self.client.get("/admin")
+        self.assertEqual(response.status_code, 301)  # /admin/-ზე გადამისამართება
+        self.assertEqual(response["Location"], "/admin/")
+
+    @override_settings(MAINTENANCE_MODE=True)
+    def test_urls_that_only_look_like_admin_are_blocked(self):
+        for url in ("/administrator/", "/admin-panel/", "/shop/admin/"):
+            with self.subTest(url=url):
+                self.assertContains(self.client.get(url), self.MESSAGE, status_code=503)
+
+    @override_settings(MAINTENANCE_MODE=True)
+    def test_maintenance_page_does_not_touch_the_database(self):
+        # context processor-ებისა და სესიის გარეშე: ბაზა არ გვჭირდება
+        with self.assertNumQueries(0):
+            response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 503)
+
+    @override_settings()
+    def test_missing_setting_means_the_site_is_on(self):
+        from django.conf import settings
+
+        del settings.MAINTENANCE_MODE
+        self.assertEqual(self.client.get(reverse("home")).status_code, 200)
+
+    def test_mode_can_be_switched_on_and_off(self):
+        with override_settings(MAINTENANCE_MODE=True):
+            self.assertEqual(self.client.get(reverse("home")).status_code, 503)
+        self.assertEqual(self.client.get(reverse("home")).status_code, 200)
+
+    def test_middleware_passes_request_on_only_when_allowed(self):
+        passed_on = []
+
+        def get_response(request):
+            passed_on.append(request.path)
+            return HttpResponse("real page")
+
+        middleware = MaintenanceModeMiddleware(get_response)
+        factory = RequestFactory()
+
+        with override_settings(MAINTENANCE_MODE=False):
+            self.assertEqual(middleware(factory.get("/sale/")).content, b"real page")
+        with override_settings(MAINTENANCE_MODE=True):
+            blocked = middleware(factory.get("/sale/"))
+            allowed = middleware(factory.get("/admin/shop/product/"))
+
+        self.assertEqual(blocked.status_code, 503)
+        self.assertIn(self.MESSAGE.encode(), blocked.content)
+        self.assertEqual(allowed.content, b"real page")
+        # დაბლოკილი request შემდეგ ფენამდე (view-მდე) საერთოდ არ მისულა
+        self.assertEqual(passed_on, ["/sale/", "/admin/shop/product/"])
+
+
+class ProductUpdatedSignalTests(ShopTestCase):
+    """post_save signal: განახლებულ პროდუქტზე ტერმინალში იბეჭდება Product "..." was updated."""
+
+    def capture(self):
+        """print-ის ტექსტს იჭერს (ტერმინალის ნაცვლად StringIO-ში ჩაწერს)."""
+        return contextlib.redirect_stdout(io.StringIO())
+
+    def test_signal_is_connected(self):
+        self.assertTrue(post_save.has_listeners(Product))
+
+    def test_saving_existing_product_prints_the_message(self):
+        product = Product.objects.get(pk=self.cheap.pk)
+        product.name = "Asus Laptop"
+        with self.capture() as output:
+            product.save()
+        self.assertEqual(output.getvalue(), 'Product "Asus Laptop" was updated.\n')
+
+    def test_message_works_with_georgian_names(self):
+        product = Product.objects.get(pk=self.cheap.pk)
+        product.name = "ლეპტოპი"
+        with self.capture() as output:
+            product.save()
+        self.assertEqual(output.getvalue(), 'Product "ლეპტოპი" was updated.\n')
+
+    def test_creating_a_product_prints_nothing(self):
+        with self.capture() as output:
+            Product.objects.create(
+                name="Brand new", price="10", category=self.laptops, user=self.owner
+            )
+        self.assertEqual(output.getvalue(), "")
+
+    def test_deleting_a_product_prints_nothing(self):
+        with self.capture() as output:
+            self.cheap.delete()
+        self.assertEqual(output.getvalue(), "")
+
+    def test_edit_form_prints_the_message_once(self):
+        self.client.force_login(self.owner)
+        with self.capture() as output:
+            response = self.client.post(
+                reverse("product_update", args=[self.mid.pk]),
+                {"name": "Asus Laptop", "category": self.laptops.pk, "price": "999"},
+            )
+        self.assertRedirects(response, reverse("product_detail", args=[self.mid.pk]))
+        self.assertEqual(output.getvalue(), 'Product "Asus Laptop" was updated.\n')
+
+    def test_invalid_edit_form_prints_nothing(self):
+        self.client.force_login(self.owner)
+        with self.capture() as output:
+            response = self.client.post(
+                reverse("product_update", args=[self.mid.pk]),
+                {"name": "Asus Laptop", "category": self.laptops.pk, "price": "not a number"},
+            )
+        self.assertEqual(response.status_code, 200)  # ფორმა შეცდომებით ისევ გამოჩნდა
+        self.assertEqual(output.getvalue(), "")
+
+    def test_add_form_prints_nothing(self):
+        self.client.force_login(self.owner)
+        with self.capture() as output:
+            response = self.client.post(
+                reverse("product_create"),
+                {"name": "Asus Laptop", "category": self.laptops.pk, "price": "999"},
+            )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(output.getvalue(), "")

@@ -1,5 +1,5 @@
 {% extends "shop/base.html" %}
-{% load static %}
+{% load static shop_tags %}
 
 {% block title %}Home · Mini Shop{% endblock %}
 
@@ -91,16 +91,19 @@
         <div class="tab-class">
             <div class="row g-4">
                 <div class="col-12 text-center wow fadeInUp" data-wow-delay="0.1s">
+                    {# პაგინაციის გამო "products" მხოლოდ მიმდინარე გვერდია, ამიტომ ჯამს paginator.count-იდან ვიღებთ #}
+                    {% with total=page_obj.paginator.count %}
                     {% if search_active %}
                         <h1>Search Results</h1>
                         <p class="text-muted">
-                            {{ products|length }} product{{ products|length|pluralize }} found{% if query %} for “{{ query }}”{% endif %}
+                            {{ total }} product{{ total|pluralize }} found{% if query %} for “{{ query }}”{% endif %}
                             · <a href="{% url 'home' %}">show all</a>
                         </p>
                     {% else %}
                         <h1>Our Products</h1>
-                        <p class="text-muted">Sorted by price, low to high · {{ products|length }} product{{ products|length|pluralize }}</p>
+                        <p class="text-muted">Sorted by price, low to high · {{ total }} product{{ total|pluralize }}</p>
                     {% endif %}
+                    {% endwith %}
                 </div>
                 <div class="col-12 text-center wow fadeInUp" data-wow-delay="0.1s">
                     {# კატეგორიების ღილაკები: "All Products" + თითო ღილაკი ყოველი არაცარიელი კატეგორიისთვის #}
@@ -143,6 +146,7 @@
                     </div>
                 </div>
             </div>
+            {% pagination page_obj %}
         </div>
     </div>
 </div>

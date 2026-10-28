@@ -47,6 +47,10 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    # ტექნიკური სამუშაოების რეჟიმი (HW42; იხ. MAINTENANCE_MODE ქვემოთ). CommonMiddleware-ის შემდეგაა,
+    # რომ "/admin" ჯერ "/admin/"-ზე გადავიდეს, და CSRF/Auth/Messages-ის წინ, რომ ჩართულ რეჟიმში
+    # არც სესიას და არც ბაზას ვეხებოდეთ.
+    "shop.middleware.MaintenanceModeMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -139,6 +143,13 @@ LOGIN_URL = "login"
 # შესვლის (თუ ?next= არ არის) და გასვლის შემდეგ მთავარ გვერდზე გადავდივართ
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "home"
+
+
+# Maintenance mode (ტექნიკური სამუშაოები, HW42)
+# True-ზე shop.middleware.MaintenanceModeMiddleware ყველა გვერდზე აჩვენებს "Site is under maintenance"-ს,
+# /admin/ კი ჩვეულებრივ მუშაობს. გასართავად ჩაწერეთ True და შეინახეთ (runserver თავისით გადაიტვირთება),
+# გამოსართავად დააბრუნეთ False.
+MAINTENANCE_MODE = False
 
 
 # Messages (შეტყობინებები: "პროდუქტი დაემატა" და ა.შ.)

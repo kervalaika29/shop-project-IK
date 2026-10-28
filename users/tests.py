@@ -3,7 +3,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from shop.models import Category, Product
-from shop.tests import TempMediaMixin, make_image
+from shop.tests import SilentStdoutMixin, TempMediaMixin, make_image
 
 User = get_user_model()
 PASSWORD = "Str0ng-pass-123"
@@ -255,7 +255,7 @@ class NavbarTests(TestCase):
 
 
 @fast_hashing
-class FullScenarioTests(TempMediaMixin, TestCase):
+class FullScenarioTests(SilentStdoutMixin, TempMediaMixin, TestCase):
     """მთელი სცენარი ბრაუზერის როლში: ორი ადამიანი ერთმანეთის პროდუქტს ვერ ეხება."""
 
     def register(self, client, username):

@@ -2,7 +2,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db.models import Count
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import CreateView, DetailView, ListView, TemplateView
 
@@ -36,11 +38,17 @@ class HomeView(ListView):
     ListView თვითონ იღებს queryset-ს და შაბლონს აწვდის context_object_name-ით
     ("products"). ფილტრაცია get_queryset-შია, დამატებითი მონაცემები კი
     get_context_data-ში.
+
+    პაგინაცია (HW42): paginate_by = 8 ნიშნავს, რომ გვერდზე 8 პროდუქტია (ბადეში 4 სვეტია,
+    ე.ი. 2 სრული რიგი). ListView გვერდებად თვითონ ჭრის queryset-ს (?page=2) და შაბლონს
+    აძლევს page_obj-ს; "products" ახლა მხოლოდ მიმდინარე გვერდის პროდუქტებია.
+    არარსებულ გვერდზე (?page=99 ან ?page=abc) Django 404-ს აბრუნებს.
     """
 
     queryset = Product.objects.select_related("category").order_by("price")
     template_name = "shop/home.html"
     context_object_name = "products"
+    paginate_by = 8
 
     def get_query(self):
         """საძიებო ტექსტი (?q=...), ზედმეტი გამოტოვებების გარეშე."""
@@ -80,23 +88,43 @@ class HomeView(ListView):
 
 
 class CategoryDetailView(DetailView):
-    """კონკრეტული კატეგორიის გვერდი: მხოლოდ ამ კატეგორიის პროდუქტები."""
+    """
+    კონკრეტული კატეგორიის გვერდი: მხოლოდ ამ კატეგორიის პროდუქტები.
+
+    DetailView-ს ჩაშენებული პაგინაცია არ აქვს (ის ერთ ობიექტს აჩვენებს, სიას კი არა),
+    ამიტომ აქ Paginator-ს ხელით ვიყენებთ. შაბლონს იგივე ცვლადებს ვაწვდით, რასაც ListView
+    (page_obj, paginator, is_paginated), ამიტომ შაბლონი იგივეა, რაც SaleView-სთვის.
+    """
 
     queryset = Category.objects.annotate(product_count=Count("products"))
     template_name = "shop/category_detail.html"
     context_object_name = "category"
+    paginate_by = 6  # ბადეში 3 სვეტია, ე.ი. 2 სრული რიგი
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["category_pk_active"] = self.object.pk
-        context["products"] = self.object.products.select_related("category").order_by(
-            "price"
+        products = self.object.products.select_related("category").order_by("price")
+
+        paginator = Paginator(products, self.paginate_by)
+        try:
+            page_obj = paginator.page(self.request.GET.get("page") or 1)
+        except (PageNotAnInteger, EmptyPage):
+            # ListView-ს მსგავსად: არარსებულ გვერდზე 404
+            raise Http404("Invalid page.")
+        context.update(
+            {
+                "products": page_obj.object_list,  # მხოლოდ მიმდინარე გვერდის პროდუქტები
+                "page_obj": page_obj,
+                "paginator": paginator,
+                "is_paginated": page_obj.has_other_pages(),
+            }
         )
         return context
 
 
 class SaleView(ListView):
-    """ფასდაკლებული პროდუქტების გვერდი."""
+    """ფასდაკლებული პროდუქტების გვერდი (პაგინაციით: გვერდზე 6 პროდუქტი)."""
 
     queryset = (
         Product.objects.filter(has_discount=True)
@@ -105,6 +133,7 @@ class SaleView(ListView):
     )
     template_name = "shop/sale.html"
     context_object_name = "products"
+    paginate_by = 6
 
 
 class ProductDetailView(DetailView):

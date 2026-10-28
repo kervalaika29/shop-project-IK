@@ -5,5 +5,5 @@ class ShopConfig(AppConfig):
     name = "shop"
 
     def ready(self):
-        # signal-ების დარეგისტრირება (სურათის ფაილების გასუფთავება)
+        # signal-ების დარეგისტრირება (პროდუქტის განახლების შეტყობინება, სურათის ფაილების გასუფთავება)
         from . import signals  # noqa: F401

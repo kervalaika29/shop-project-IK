@@ -1,7 +1,22 @@
-from django.db.models.signals import post_delete, pre_save
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
 from .models import Product
+
+
+@receiver(post_save, sender=Product)
+def print_product_updated(sender, instance, created, **kwargs):
+    """
+    პროდუქტის განახლებისას ტერმინალში (იქ, სადაც runserver გაშვებულია) ბეჭდავს:
+        Product "Asus Laptop" was updated.
+
+    post_save ყოველი .save()-ის შემდეგ სრულდება. created=True ნიშნავს, რომ პროდუქტი ახლა
+    შეიქმნა (ახალი ჩანაწერი), ამიტომ მას "updated" არ ვწერთ: ვბეჭდავთ მხოლოდ მაშინ,
+    როცა უკვე არსებული პროდუქტი შეინახა (საიტიდან Edit-ით, admin-იდან ან კოდიდან).
+    signal თავისით მუშაობს, view-ებში ან admin-ში არაფერი უნდა შეიცვალოს.
+    """
+    if not created:
+        print(f'Product "{instance.name}" was updated.', flush=True)
 
 
 @receiver(post_delete, sender=Product)

@@ -1,0 +1,31 @@
+{% comment %}
+    გვერდების ნავიგაცია. იძახება ტეგით: {% pagination page_obj %} (shop/templatetags/shop_tags.py).
+    სტილი Electro-ს მზა .pagination კლასიდანაა. თუ მხოლოდ ერთი გვერდია, არაფერი ჩანს.
+    ბმულები "?...&page=N" ფორმისაა: querystring-ში ძიების პარამეტრებია (გვერდის გარეშე).
+{% endcomment %}
+{% if page_obj.has_other_pages %}
+<nav aria-label="Product pages" class="mt-5">
+    <div class="pagination d-flex flex-wrap justify-content-center">
+        {% if page_obj.has_previous %}
+            <a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}" class="rounded" aria-label="Previous page">&laquo;</a>
+        {% endif %}
+
+        {% for item in pages %}
+            {% if item.gap %}
+                <span class="px-2 align-self-center text-muted">&hellip;</span>
+            {% elif item.current %}
+                <a class="active rounded" aria-current="page">{{ item.number }}</a>
+            {% else %}
+                <a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ item.number }}" class="rounded">{{ item.number }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}" class="rounded" aria-label="Next page">&raquo;</a>
+        {% endif %}
+    </div>
+    <p class="text-center text-muted small mt-3 mb-0">
+        Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} products
+    </p>
+</nav>
+{% endif %}
