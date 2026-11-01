@@ -73,3 +73,17 @@
 .form-item input[type="checkbox"] {
     margin: 0 4px 0 8px;
 }
+
+/* HW43: ძებნის / ფილტრის პანელი */
+.filter-bar .badge {
+    transition: 0.3s;
+}
+
+.filter-bar .badge:hover {
+    background-color: var(--bs-secondary) !important;
+}
+
+.filter-bar .form-check-input {
+    margin-top: 0.3rem;
+}
+

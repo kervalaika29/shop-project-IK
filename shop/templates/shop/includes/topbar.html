@@ -30,10 +30,10 @@
             </div>
         </div>
         <div class="col-md-4 col-lg-6 text-center">
-            {# ძიება: ფორმა GET-ით აგზავნის ?q=...&category=... მთავარ გვერდზე #}
+            {# ძიება: ფორმა GET-ით აგზავნის ?q=...&category=... მთავარ გვერდზე. HW43: თუ სორტირება ან ფასის/sale ფილტრი უკვე არჩეულია, ისინი დამალული ველებით გადადის, ამიტომ ახალი ძებნა მათ არ აუქმებს #}
             <form action="{% url 'home' %}" method="get" class="position-relative ps-4">
                 <div class="d-flex border rounded-pill">
-                    <input class="form-control border-0 rounded-pill w-100 py-3" type="text" name="q" value="{{ query|default:'' }}" placeholder="Search products by name">
+                    <input class="form-control border-0 rounded-pill w-100 py-3" type="text" name="q" value="{{ query|default:'' }}" placeholder="Search by name or description">
                     <select name="category" class="form-select text-dark border-0 border-start rounded-0 p-3" style="width: 200px;">
                         <option value="">All Category</option>
                         {% for category in categories %}
@@ -42,6 +42,10 @@
                     </select>
                     <button type="submit" class="btn btn-primary rounded-pill py-3 px-5" style="border: 0;"><i class="fas fa-search"></i></button>
                 </div>
+                {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
+                {% if request.GET.min_price %}<input type="hidden" name="min_price" value="{{ request.GET.min_price }}">{% endif %}
+                {% if request.GET.max_price %}<input type="hidden" name="max_price" value="{{ request.GET.max_price }}">{% endif %}
+                {% if request.GET.sale %}<input type="hidden" name="sale" value="{{ request.GET.sale }}">{% endif %}
             </form>
         </div>
         <div class="col-md-4 col-lg-3 text-center text-lg-end">

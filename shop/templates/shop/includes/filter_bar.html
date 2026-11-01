@@ -1,0 +1,80 @@
+{% comment %}
+    HW43: ძებნის, ფილტრაციისა და სორტირების პანელი (მთავარი, კატეგორიის და sale გვერდი).
+
+    სამი ნაწილია და სამივე ერთ მისამართს (?...) წერს/ინახავს, ამიტომ ერთად მუშაობს:
+    1) ფორმა (GET): ძებნა + ფილტრები. "Apply"-ზე დაჭერისას ახალი ძებნა იწყება და გვერდი პირველი ხდება.
+       სორტირება ფორმაში დამალული ველით გადადის, ამიტომ ფილტრის შეცვლა სორტირებას არ ხსნის.
+    2) აქტიური ფილტრების "ჩიპები": ჩიპზე დაჭერა მხოლოდ ამ ფილტრს ხსნის, დანარჩენი რჩება.
+    3) სორტირების ღილაკები: ბმულებია, რომლებიც მიმდინარე ძებნასა და ფილტრებს ინახავენ.
+    ბმულებს (ჩიპები და სორტირება) view აგებს (ProductFilterMixin.url_with).
+    ცვლადები: filter_form, active_filters, filters_active, clear_filters_url, sort_options, sort_param.
+{% endcomment %}
+<div class="filter-bar mb-4">
+    {# action არ არის: ფორმა იმავე გვერდს აგზავნის (მთავარს, კატეგორიას ან sale-ს) ახალი ?...-ით #}
+    <form method="get" class="bg-light rounded p-4" role="search">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 {% if filter_form.category %}col-md-6{% endif %}">
+                <label for="{{ filter_form.q.id_for_label }}" class="form-label fw-bold small mb-1">{{ filter_form.q.label }}</label>
+                {{ filter_form.q }}
+            </div>
+            {% if filter_form.category %}
+                <div class="col-12 col-md-6">
+                    <label for="{{ filter_form.category.id_for_label }}" class="form-label fw-bold small mb-1">{{ filter_form.category.label }}</label>
+                    {{ filter_form.category }}
+                </div>
+            {% endif %}
+            <div class="col-6 col-md">
+                <label for="{{ filter_form.min_price.id_for_label }}" class="form-label fw-bold small mb-1">{{ filter_form.min_price.label }}</label>
+                {{ filter_form.min_price }}
+            </div>
+            <div class="col-6 col-md">
+                <label for="{{ filter_form.max_price.id_for_label }}" class="form-label fw-bold small mb-1">{{ filter_form.max_price.label }}</label>
+                {{ filter_form.max_price }}
+            </div>
+            {% if filter_form.sale %}
+                <div class="col-12 col-md-auto">
+                    <div class="form-check mb-2">
+                        {{ filter_form.sale }}
+                        <label for="{{ filter_form.sale.id_for_label }}" class="form-check-label">{{ filter_form.sale.label }}</label>
+                    </div>
+                </div>
+            {% endif %}
+            <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
+                <button type="submit" class="btn btn-primary rounded-pill py-2 px-4"><i class="fas fa-search me-2"></i>Apply</button>
+                {% if filters_active %}
+                    <a href="{{ clear_filters_url }}" class="btn btn-light border rounded-pill py-2 px-4">Clear filters</a>
+                {% endif %}
+            </div>
+        </div>
+        {# მიმდინარე სორტირება ფორმასთან ერთად გადადის (სტანდარტულ სორტირებას არაფერი ეწერება) #}
+        {% if sort_param %}<input type="hidden" name="sort" value="{{ sort_param }}">{% endif %}
+
+        {# არასწორი მნიშვნელობა (მაგ. ?min_price=abc) საიტს არ აფუჭებს: ის ველი გამოტოვებულია, დანარჩენი მუშაობს #}
+        {% if filter_form.errors %}
+            <div class="alert alert-warning mt-3 mb-0 py-2 small" role="alert">
+                Some values were ignored:
+                <ul class="mb-0">
+                    {% for field in filter_form %}{% for error in field.errors %}
+                        <li>{{ field.label }}: {{ error }}</li>
+                    {% endfor %}{% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+    </form>
+
+    {% if active_filters %}
+        <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+            <span class="text-muted small">Active filters:</span>
+            {% for chip in active_filters %}
+                <a href="{{ chip.url }}" class="badge rounded-pill bg-primary text-white fw-normal fs-6 py-2 px-3 text-decoration-none" title="Remove this filter">{{ chip.label }} <i class="fas fa-times ms-1"></i></a>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-3" role="group" aria-label="Sort products">
+        <span class="text-muted small me-1">Sort by:</span>
+        {% for option in sort_options %}
+            <a href="{{ option.url }}" class="btn btn-sm rounded-pill fw-bold {% if option.active %}btn-primary{% else %}btn-light border{% endif %}"{% if option.active %} aria-current="true"{% endif %}>{{ option.label }}</a>
+        {% endfor %}
+    </div>
+</div>

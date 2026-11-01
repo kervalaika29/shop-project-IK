@@ -20,7 +20,8 @@ from PIL import Image
 from .middleware import MaintenanceModeMiddleware
 from .models import CATEGORY_IMAGES, DEFAULT_IMAGES, Category, Product
 from .templatetags.shop_tags import pagination
-from .views import CategoryDetailView, HomeView, SaleView
+from .forms import DEFAULT_SORT, SORT_OPTIONS, ProductFilterForm
+from .views import CategoryDetailView, HomeView, ProductFilterMixin, SaleView
 
 User = get_user_model()
 
@@ -1360,3 +1361,520 @@ class ProductUpdatedSignalTests(ShopTestCase):
             )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(output.getvalue(), "")
+
+
+# ---------------------------------------------------------------------------
+# HW43: ძებნა + ფილტრაცია + სორტირება
+# ---------------------------------------------------------------------------
+
+
+class FilterTestCase(ShopTestCase):
+    """
+    საერთო მონაცემები HW43-ის ტესტებისთვის. ShopTestCase-ის 3 პროდუქტს (Cheap laptop 500 SALE,
+    Mid phone 800, Expensive laptop 2500) ვამატებთ ისეთებს, რომ ყველა ფილტრსა და სორტირებას
+    თავისი შედეგი ჰქონდეს. ყველა ფასი სხვადასხვაა (გარდა ერთი შემთხვევისა, რომელსაც tie ტესტი სჭირდება).
+
+        Cheap laptop         500   Laptops  SALE
+        Mid phone            800   Phones
+        Expensive laptop    2500   Laptops
+        apple watch          300   Phones   SALE  (პატარა ასოთი: სახელის სორტირების ტესტისთვის)
+        Zebra case            50   Phones         (აღწერაში: "rugged cover for your laptop")
+        Budget tablet        800   Phones         (ფასი Mid phone-ის იგივეა: tie ტესტისთვის)
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.watch = Product.objects.create(
+            name="apple watch", price="300.00", category=cls.phones,
+            has_discount=True, user=cls.owner,
+        )
+        cls.case = Product.objects.create(
+            name="Zebra case", price="50.00", category=cls.phones, user=cls.owner,
+            description="Rugged cover for your LAPTOP",
+        )
+        cls.tablet = Product.objects.create(
+            name="Budget tablet", price="800.00", category=cls.phones, user=cls.owner,
+        )
+
+    def get_products(self, url_name="home", args=None, **params):
+        """გვერდს ხსნის და მის პროდუქტებს (მხოლოდ მიმდინარე გვერდის) სახელებად აბრუნებს."""
+        response = self.client.get(reverse(url_name, args=args), params)
+        self.assertEqual(response.status_code, 200)
+        return [product.name for product in response.context["products"]]
+
+
+class SearchTests(FilterTestCase):
+    def test_search_by_name_is_case_insensitive(self):
+        self.assertEqual(self.get_products(q="MID PHONE"), ["Mid phone"])
+
+    def test_search_looks_in_the_description_too(self):
+        # "Zebra case"-ის სახელში "laptop" არ არის, აღწერაში კი არის (დიდი ასოებით)
+        self.assertIn("Zebra case", self.get_products(q="laptop"))
+
+    def test_every_word_must_match_in_any_order(self):
+        self.assertEqual(self.get_products(q="laptop cheap"), ["Cheap laptop"])
+        self.assertEqual(self.get_products(q="cheap laptop"), ["Cheap laptop"])
+        self.assertEqual(self.get_products(q="cheap phone"), [])
+
+    def test_extra_spaces_are_ignored(self):
+        self.assertEqual(self.get_products(q="   mid    phone  "), ["Mid phone"])
+
+    def test_empty_search_shows_everything(self):
+        self.assertEqual(len(self.get_products(q="")), 6)
+        self.assertEqual(len(self.get_products(q="   ")), 6)
+
+    def test_nothing_found(self):
+        response = self.client.get(reverse("home"), {"q": "zzz"})
+        self.assertEqual(list(response.context["products"]), [])
+        self.assertContains(response, "No products match your search.")
+        self.assertContains(response, "Clear filters")
+
+    def test_search_text_is_escaped(self):
+        response = self.client.get(reverse("home"), {"q": "<script>alert(1)</script>"})
+        self.assertNotContains(response, "<script>alert(1)</script>")
+        self.assertContains(response, "&lt;script&gt;")
+
+    def test_search_works_on_category_and_sale_pages(self):
+        self.assertEqual(self.get_products("category_detail", [self.phones.pk], q="tablet"), ["Budget tablet"])
+        self.assertEqual(self.get_products("sale", q="watch"), ["apple watch"])
+        # sale გვერდზე ფასდაკლების გარეშე პროდუქტი არ ჩანს, ძებნაც ვერ იპოვის
+        self.assertEqual(self.get_products("sale", q="tablet"), [])
+
+
+class CategoryFilterTests(FilterTestCase):
+    def test_filter_by_category(self):
+        self.assertEqual(
+            self.get_products(category=self.laptops.pk), ["Cheap laptop", "Expensive laptop"]
+        )
+
+    def test_unknown_or_garbage_category_is_ignored_with_a_message(self):
+        for value in ("abc", "9999", "²", "-1"):
+            with self.subTest(value=value):
+                response = self.client.get(reverse("home"), {"category": value})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(len(response.context["products"]), 6)
+                self.assertIn("category", response.context["filter_form"].errors)
+                self.assertContains(response, "Some values were ignored")
+
+    def test_select_lists_only_non_empty_categories(self):
+        response = self.client.get(reverse("home"))
+        options = [category.name for category in response.context["filter_form"].fields["category"].queryset]
+        self.assertEqual(options, ["Laptops", "Phones"])  # "Empty category" არ ჩანს
+
+    def test_selected_category_is_kept_in_the_form(self):
+        response = self.client.get(reverse("home"), {"category": self.phones.pk})
+        self.assertContains(response, f'<option value="{self.phones.pk}" selected>Phones</option>', html=True)
+
+    def test_category_page_has_no_category_filter_and_ignores_the_parameter(self):
+        response = self.client.get(reverse("category_detail", args=[self.laptops.pk]), {"category": self.phones.pk})
+        self.assertNotIn("category", response.context["filter_form"].fields)
+        self.assertEqual([p.name for p in response.context["products"]], ["Cheap laptop", "Expensive laptop"])
+
+
+class PriceFilterTests(FilterTestCase):
+    def test_min_price(self):
+        self.assertEqual(self.get_products(min_price="800"), ["Mid phone", "Budget tablet", "Expensive laptop"])
+
+    def test_max_price(self):
+        self.assertEqual(self.get_products(max_price="300"), ["Zebra case", "apple watch"])
+
+    def test_both_limits_are_inclusive(self):
+        self.assertEqual(self.get_products(min_price="300", max_price="800"),
+                         ["apple watch", "Cheap laptop", "Mid phone", "Budget tablet"])
+
+    def test_decimal_values_work(self):
+        self.assertEqual(self.get_products(min_price="49.99", max_price="50.00"), ["Zebra case"])
+
+    def test_min_greater_than_max_ignores_max_and_explains(self):
+        response = self.client.get(reverse("home"), {"min_price": "2000", "max_price": "100"})
+        self.assertEqual([p.name for p in response.context["products"]], ["Expensive laptop"])
+        self.assertIn("max_price", response.context["filter_form"].errors)
+        self.assertContains(response, "Max price must not be lower than min price")
+
+    def test_bad_values_are_ignored_and_never_crash(self):
+        for value in ("abc", "-5", "1e30", "99999999999", "1.234", "nan", "inf", ""):
+            for field in ("min_price", "max_price"):
+                with self.subTest(field=field, value=value):
+                    response = self.client.get(reverse("home"), {field: value})
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(len(response.context["products"]), 6)
+
+    def test_zero_is_a_valid_limit(self):
+        self.assertEqual(len(self.get_products(min_price="0")), 6)
+        self.assertEqual(self.get_products(max_price="0"), [])
+
+
+class SaleFilterTests(FilterTestCase):
+    def test_on_sale_only(self):
+        self.assertEqual(self.get_products(sale="on"), ["apple watch", "Cheap laptop"])
+
+    def test_checkbox_value_is_not_important_only_presence(self):
+        self.assertEqual(self.get_products(sale="1"), ["apple watch", "Cheap laptop"])
+
+    def test_without_the_parameter_everything_is_shown(self):
+        self.assertEqual(len(self.get_products()), 6)
+
+    def test_sale_page_has_no_sale_checkbox(self):
+        response = self.client.get(reverse("sale"))
+        self.assertNotIn("sale", response.context["filter_form"].fields)
+        self.assertNotContains(response, "On sale only")
+
+
+class SortTests(FilterTestCase):
+    def test_default_sort_is_price_low_to_high(self):
+        self.assertEqual(DEFAULT_SORT, "price_asc")
+        self.assertEqual(
+            self.get_products(),
+            ["Zebra case", "apple watch", "Cheap laptop", "Mid phone", "Budget tablet", "Expensive laptop"],
+        )
+
+    def test_price_high_to_low(self):
+        self.assertEqual(
+            self.get_products(sort="price_desc"),
+            ["Expensive laptop", "Mid phone", "Budget tablet", "Cheap laptop", "apple watch", "Zebra case"],
+        )
+
+    def test_name_sort_ignores_letter_case(self):
+        # "apple watch" (პატარა a) "Budget tablet"-ზე წინაა, "Zebra case" კი ბოლოს
+        self.assertEqual(
+            self.get_products(sort="name_asc"),
+            ["apple watch", "Budget tablet", "Cheap laptop", "Expensive laptop", "Mid phone", "Zebra case"],
+        )
+        self.assertEqual(
+            self.get_products(sort="name_desc"),
+            ["Zebra case", "Mid phone", "Expensive laptop", "Cheap laptop", "Budget tablet", "apple watch"],
+        )
+
+    def test_newest_first(self):
+        self.assertEqual(
+            self.get_products(sort="newest"),
+            ["Budget tablet", "Zebra case", "apple watch", "Expensive laptop", "Mid phone", "Cheap laptop"],
+        )
+
+    def test_equal_prices_keep_a_stable_order_by_id(self):
+        # Mid phone და Budget tablet ორივე 800 ღირს: რიგი ორივე მიმართულებით id-ზე დგას
+        asc = self.get_products(sort="price_asc")
+        desc = self.get_products(sort="price_desc")
+        self.assertLess(asc.index("Mid phone"), asc.index("Budget tablet"))
+        self.assertLess(desc.index("Mid phone"), desc.index("Budget tablet"))
+
+    def test_unknown_sort_falls_back_to_default(self):
+        response = self.client.get(reverse("home"), {"sort": "hacker"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["sort"], DEFAULT_SORT)
+        self.assertEqual(self.get_products(sort="hacker")[0], "Zebra case")
+
+    def test_every_sort_option_works_on_every_list(self):
+        pages = [("home", None), ("sale", None), ("category_detail", [self.laptops.pk])]
+        for key in SORT_OPTIONS:
+            for name, args in pages:
+                with self.subTest(sort=key, page=name):
+                    self.get_products(name, args, sort=key)
+
+    def test_sort_buttons_and_heading(self):
+        response = self.client.get(reverse("home"), {"sort": "name_desc"})
+        self.assertEqual(response.context["sort_label"], "Name: Z to A")
+        self.assertContains(response, "Sorted by name, Z to A")
+        active = [option["label"] for option in response.context["sort_options"] if option["active"]]
+        self.assertEqual(active, ["Name: Z to A"])
+
+
+class CombinedFilterTests(FilterTestCase):
+    """მთავარი ტესტები: ძებნა, ფილტრები და სორტირება ერთმანეთს არ აუქმებენ."""
+
+    def test_search_and_category(self):
+        self.assertEqual(self.get_products(q="laptop", category=self.phones.pk), ["Zebra case"])
+
+    def test_search_and_price(self):
+        self.assertEqual(self.get_products(q="laptop", max_price="1000"), ["Zebra case", "Cheap laptop"])
+
+    def test_search_and_sale(self):
+        self.assertEqual(self.get_products(q="laptop", sale="on"), ["Cheap laptop"])
+
+    def test_category_price_and_sale(self):
+        self.assertEqual(self.get_products(category=self.phones.pk, max_price="400", sale="on"), ["apple watch"])
+
+    def test_search_and_sort(self):
+        self.assertEqual(
+            self.get_products(q="laptop", sort="price_desc"),
+            ["Expensive laptop", "Cheap laptop", "Zebra case"],
+        )
+
+    def test_filters_and_sort(self):
+        self.assertEqual(
+            self.get_products(category=self.phones.pk, min_price="100", sort="name_asc"),
+            ["apple watch", "Budget tablet", "Mid phone"],
+        )
+
+    def test_everything_together(self):
+        self.assertEqual(
+            self.get_products(
+                q="a", category=self.phones.pk, min_price="100", max_price="800",
+                sale="on", sort="price_desc",
+            ),
+            ["apple watch"],
+        )
+        # იგივე ფილტრები, sale-ის გარეშე: შედეგი ფართოვდება და სორტირება ისევ მუშაობს
+        self.assertEqual(
+            self.get_products(q="a", category=self.phones.pk, min_price="100", max_price="800", sort="price_desc"),
+            ["Budget tablet", "apple watch"],  # "Mid phone"-ში "a" არ არის
+        )
+
+    def test_everything_together_on_category_page(self):
+        self.assertEqual(
+            self.get_products("category_detail", [self.phones.pk], q="a", min_price="100", sort="price_desc"),
+            ["Budget tablet", "apple watch"],
+        )
+
+    def test_everything_together_on_sale_page(self):
+        self.assertEqual(
+            self.get_products("sale", category=self.phones.pk, q="a", sort="name_desc"),
+            ["apple watch"],
+        )
+
+    def test_a_bad_value_does_not_cancel_the_other_filters(self):
+        response = self.client.get(
+            reverse("home"), {"q": "laptop", "min_price": "abc", "sale": "on", "sort": "price_desc"}
+        )
+        self.assertEqual([p.name for p in response.context["products"]], ["Cheap laptop"])
+        self.assertIn("min_price", response.context["filter_form"].errors)
+
+    def test_old_urls_still_work(self):
+        # HW36-ის ძველი ბმულები: ?q=...&category=...
+        self.assertEqual(self.get_products(q="laptop", category=self.laptops.pk), ["Cheap laptop", "Expensive laptop"])
+
+
+class FilterLinksAndPaginationTests(FilterTestCase):
+    """ბმულები (ჩიპები, სორტირება, გვერდები) ერთმანეთის პარამეტრებს ინახავს."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.many = Category.objects.create(name="Many")
+        Product.objects.bulk_create(
+            Product(
+                name=f"Many {i:02d}", price=Decimal(1000 + i), category=cls.many,
+                has_discount=i % 2 == 0, user=cls.owner,
+            )
+            for i in range(1, 21)
+        )
+
+    def test_pages_keep_search_filters_and_sort(self):
+        params = {"q": "many", "min_price": "1003", "sale": "on", "sort": "price_desc"}
+        response = self.client.get(reverse("home"), params)
+        # ფასდაკლებული (ლუწი) Many პროდუქტები 1003-დან: 1004, 1006, ... 1020 = 9 პროდუქტი (8 + 1)
+        self.assertEqual(response.context["paginator"].count, 9)
+        self.assertEqual(len(response.context["products"]), 8)
+        self.assertEqual(response.context["products"][0].name, "Many 20")
+        self.assertContains(response, 'href="?q=many&amp;min_price=1003&amp;sale=on&amp;sort=price_desc&amp;page=2"')
+
+        second = self.client.get(reverse("home"), {**params, "page": 2})
+        self.assertEqual([p.name for p in second.context["products"]], ["Many 04"])
+
+    def test_sorting_does_not_lose_pages_or_duplicate_products(self):
+        for sort in SORT_OPTIONS:
+            with self.subTest(sort=sort):
+                seen = []
+                for page in (1, 2, 3):
+                    response = self.client.get(reverse("home"), {"q": "many", "sort": sort, "page": page})
+                    seen += [p.pk for p in response.context["products"]]
+                self.assertEqual(len(seen), 20)
+                self.assertEqual(len(set(seen)), 20)
+
+    def test_changing_sort_returns_to_the_first_page_and_keeps_filters(self):
+        response = self.client.get(
+            reverse("home"), {"q": "many", "category": self.many.pk, "max_price": "1015", "page": 2}
+        )
+        options = {option["key"]: option["url"] for option in response.context["sort_options"]}
+        self.assertEqual(
+            options["price_desc"],
+            f"?q=many&category={self.many.pk}&max_price=1015&sort=price_desc",
+        )
+        self.assertNotIn("page=", options["price_desc"])
+        # სტანდარტული სორტირების ბმულში sort საერთოდ არ არის
+        self.assertEqual(options["price_asc"], f"?q=many&category={self.many.pk}&max_price=1015")
+
+    def test_changing_sort_replaces_the_old_sort(self):
+        response = self.client.get(reverse("home"), {"q": "many", "sort": "name_asc"})
+        options = {option["key"]: option["url"] for option in response.context["sort_options"]}
+        self.assertEqual(options["newest"], "?q=many&sort=newest")
+        self.assertNotIn("name_asc", options["newest"])
+
+    def test_filter_chips_remove_only_their_own_filter(self):
+        response = self.client.get(
+            reverse("home"),
+            {"q": "many", "category": self.many.pk, "min_price": "1005", "max_price": "1010",
+             "sale": "on", "sort": "name_desc", "page": 1},
+        )
+        chips = {chip["label"]: chip["url"] for chip in response.context["active_filters"]}
+        self.assertEqual(
+            list(chips),
+            ["Search: “many”", "Category: Many", "Price: 1005 – 1010 ₾", "On sale only"],
+        )
+        self.assertEqual(
+            chips["Search: “many”"],
+            f"?category={self.many.pk}&min_price=1005&max_price=1010&sale=on&sort=name_desc",
+        )
+        # ფასის ჩიპი ორივე ზღვარს ერთად ხსნის
+        self.assertEqual(
+            chips["Price: 1005 – 1010 ₾"],
+            f"?q=many&category={self.many.pk}&sale=on&sort=name_desc",
+        )
+        self.assertEqual(chips["On sale only"], f"?q=many&category={self.many.pk}&min_price=1005&max_price=1010&sort=name_desc")
+
+    def test_price_chip_for_one_limit(self):
+        response = self.client.get(reverse("home"), {"min_price": "100.50"})
+        self.assertEqual([c["label"] for c in response.context["active_filters"]], ["Price: from 100.5 ₾"])
+        response = self.client.get(reverse("home"), {"max_price": "2000.00"})
+        self.assertEqual([c["label"] for c in response.context["active_filters"]], ["Price: up to 2000 ₾"])
+
+    def test_clear_filters_keeps_the_sort(self):
+        response = self.client.get(reverse("home"), {"q": "many", "sale": "on", "sort": "newest", "page": 2})
+        self.assertEqual(response.context["clear_filters_url"], "?sort=newest")
+        self.assertContains(response, 'href="?sort=newest"')
+
+    def test_clear_filters_without_sort_is_an_empty_query(self):
+        response = self.client.get(reverse("home"), {"q": "many"})
+        self.assertEqual(response.context["clear_filters_url"], "?")
+
+    def test_form_carries_the_current_sort_in_a_hidden_field(self):
+        response = self.client.get(reverse("home"), {"sort": "newest"})
+        self.assertContains(response, '<input type="hidden" name="sort" value="newest">', html=True)
+        # სტანდარტულ სორტირებას დამალული ველი არ სჭირდება
+        response = self.client.get(reverse("home"))
+        self.assertNotContains(response, 'name="sort"')
+
+    def test_search_from_the_top_bar_keeps_sort_and_other_filters(self):
+        response = self.client.get(
+            reverse("home"), {"sort": "newest", "min_price": "10", "max_price": "99", "sale": "on"}
+        )
+        for name, value in (("sort", "newest"), ("min_price", "10"), ("max_price", "99"), ("sale", "on")):
+            with self.subTest(name=name):
+                self.assertContains(response, f'<input type="hidden" name="{name}" value="{value}">', html=True)
+
+    def test_pagination_keeps_everything_on_category_and_sale_pages(self):
+        url = reverse("category_detail", args=[self.many.pk])
+        response = self.client.get(url, {"q": "many", "sort": "price_desc", "sale": "on"})
+        # კატეგორიაში "Many" 20 პროდუქტია, მათგან ფასდაკლებული 10 (კატეგორიის გვერდზე sale ფილტრი მუშაობს)
+        self.assertEqual(response.context["paginator"].count, 10)
+        self.assertContains(response, 'href="?q=many&amp;sort=price_desc&amp;sale=on&amp;page=2"')
+
+        response = self.client.get(reverse("sale"), {"q": "many", "sort": "price_desc"})
+        self.assertEqual(response.context["paginator"].count, 10)
+        self.assertContains(response, 'href="?q=many&amp;sort=price_desc&amp;page=2"')
+
+    def test_out_of_range_page_is_still_404_with_filters(self):
+        self.assertEqual(self.client.get(reverse("home"), {"q": "many", "page": 99}).status_code, 404)
+        self.assertEqual(
+            self.client.get(reverse("category_detail", args=[self.many.pk]), {"sort": "newest", "page": 99}).status_code,
+            404,
+        )
+
+
+class FilterPageContentTests(FilterTestCase):
+    def test_home_shows_the_filter_panel(self):
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, 'role="search"')
+        for field in ("q", "category", "min_price", "max_price", "sale"):
+            with self.subTest(field=field):
+                self.assertContains(response, f'name="{field}"')
+        self.assertContains(response, "Sort by:")
+        self.assertNotContains(response, "Clear filters")  # ფილტრი ჩართული არ არის
+        self.assertNotContains(response, "Active filters:")
+
+    def test_category_and_sale_pages_show_the_panel_too(self):
+        for url in (reverse("category_detail", args=[self.laptops.pk]), reverse("sale")):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertContains(response, 'role="search"')
+                self.assertContains(response, "Sort by:")
+                self.assertContains(response, "sorted by price, low to high")
+
+    def test_heading_with_filters(self):
+        response = self.client.get(reverse("home"), {"q": "laptop", "sort": "price_desc"})
+        self.assertContains(response, "Search Results")
+        self.assertContains(response, "3 products found for “laptop”")
+        self.assertContains(response, "sorted by price, high to low")
+
+    def test_sort_alone_is_not_a_search(self):
+        response = self.client.get(reverse("home"), {"sort": "newest"})
+        self.assertFalse(response.context["search_active"])
+        self.assertContains(response, "Our Products")
+
+    def test_context_variables_for_the_top_bar_are_kept(self):
+        response = self.client.get(reverse("home"), {"q": "  mid  ", "category": self.phones.pk})
+        self.assertEqual(response.context["query"], "mid")
+        self.assertEqual(response.context["selected_category"], self.phones.pk)
+        self.assertTrue(response.context["search_active"])
+
+    def test_empty_result_on_category_page_offers_to_clear_filters(self):
+        response = self.client.get(reverse("category_detail", args=[self.laptops.pk]), {"min_price": "99999"})
+        self.assertContains(response, "No products match your search.")
+        self.assertContains(response, 'href="?"')
+
+    def test_empty_category_page_without_filters_keeps_the_old_message(self):
+        empty = Category.objects.create(name="Brand new")
+        response = self.client.get(reverse("category_detail", args=[empty.pk]))
+        self.assertContains(response, "There are no products in this category yet.")
+
+    def test_all_list_views_share_the_same_filter_mixin(self):
+        for view in (HomeView, CategoryDetailView, SaleView):
+            with self.subTest(view=view.__name__):
+                self.assertTrue(issubclass(view, ProductFilterMixin))
+        self.assertEqual(CategoryDetailView.fixed_filters, ("category",))
+        self.assertEqual(SaleView.fixed_filters, ("sale",))
+
+    def test_filters_do_not_change_the_data(self):
+        before = Product.objects.count()
+        self.client.get(reverse("home"), {"q": "x", "sale": "on", "sort": "newest"})
+        self.assertEqual(Product.objects.count(), before)
+
+    def test_filters_do_not_multiply_database_queries(self):
+        # ფილტრები ერთსა და იმავე queryset-ს ავიწროვებს, ამიტომ ბაზას მეტჯერ არ ეკითხება
+        simple = self.count_queries(reverse("home"))
+        combined = self.count_queries(
+            reverse("home")
+            + f"?q=a&category={self.phones.pk}&min_price=1&max_price=9999&sale=on&sort=name_desc"
+        )
+        self.assertLessEqual(combined - simple, 1)  # მხოლოდ არჩეული კატეგორიის შემოწმება
+
+    def count_queries(self, url):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as queries:
+            self.client.get(url)
+        return len(queries)
+
+
+class ProductFilterFormTests(TestCase):
+    """ფორმა ცალკე (view-ის გარეშე)."""
+
+    def test_empty_form_is_valid_and_has_no_values(self):
+        form = ProductFilterForm({})
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data["q"], "")
+        self.assertIsNone(form.cleaned_data["min_price"])
+        self.assertFalse(form.cleaned_data["sale"])
+
+    def test_fixed_fields_are_removed(self):
+        form = ProductFilterForm({}, fixed=("category", "sale"))
+        self.assertEqual(list(form.fields), ["q", "min_price", "max_price", "sort"])
+
+    def test_sort_choices_match_the_options(self):
+        form = ProductFilterForm({})
+        self.assertEqual([key for key, label in form.fields["sort"].choices], list(SORT_OPTIONS))
+        self.assertIn(DEFAULT_SORT, SORT_OPTIONS)
+
+    def test_q_is_stripped(self):
+        form = ProductFilterForm({"q": "  sony  "})
+        form.is_valid()
+        self.assertEqual(form.cleaned_data["q"], "sony")
+
+    def test_invalid_value_is_removed_from_cleaned_data(self):
+        form = ProductFilterForm({"min_price": "abc", "q": "x"})
+        self.assertFalse(form.is_valid())
+        self.assertNotIn("min_price", form.cleaned_data)
+        self.assertEqual(form.cleaned_data["q"], "x")
+
