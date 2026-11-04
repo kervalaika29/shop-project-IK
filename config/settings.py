@@ -162,8 +162,17 @@ MESSAGE_TAGS = {
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+# console backend: წერილი რეალურად არ იგზავნება, runserver-ის ტერმინალში იბეჭდება. პაროლის აღდგენის
+# (HW44) ბმულიც ასე ჩანს. (MAILERS Django 6.1+ -ის პარამეტრია; მასთან ერთად ძველი EMAIL_BACKEND
+# აღარ გამოიყენება.)
 MAILERS = {
     "default": {
         "BACKEND": "django.core.mail.backends.console.EmailBackend",
     },
 }
+
+# "From" მისამართი წერილებში (პაროლის აღდგენის წერილშიც)
+DEFAULT_FROM_EMAIL = "Mini Shop <noreply@minishop.local>"
+
+# პაროლის აღდგენის ბმულის მოქმედების ვადა წამებში (Django-ს სტანდარტი 3 დღეა; ამას მკაფიოდ ვწერთ)
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 24 * 3

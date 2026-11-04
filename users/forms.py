@@ -1,6 +1,11 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    PasswordResetForm,
+    SetPasswordForm,
+    UserCreationForm,
+)
 from django.core.exceptions import ValidationError
 
 User = get_user_model()
@@ -54,3 +59,33 @@ class LoginForm(AuthenticationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         style_fields(self, {"username": "Username", "password": "Password"})
+
+
+class UserPasswordResetForm(PasswordResetForm):
+    """
+    პაროლის აღდგენის 1-ლი ნაბიჯი (HW44): მომხმარებელი წერს email-ს, რომლითაც დარეგისტრირდა.
+    Django-ს PasswordResetForm თვითონ პოულობს ამ email-ის (აქტიურ) მომხმარებელს და მისთვის
+    ერთჯერად ბმულს აგზავნის. აქ მხოლოდ Bootstrap-ის სტილს ვამატებთ.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        style_fields(self, {"email": "name@example.com"})
+
+
+class UserSetPasswordForm(SetPasswordForm):
+    """
+    პაროლის აღდგენის მე-3 ნაბიჯი (HW44): ახალი პაროლი ორჯერ. ძველი პაროლი არ სჭირდება
+    (ზუსტად ამიტომ არის ბმულში ერთჯერადი ტოკენი). Django ამოწმებს, რომ პაროლები ემთხვევა და
+    AUTH_PASSWORD_VALIDATORS-ის წესებს აკმაყოფილებს, ინახავს კი დაჰეშილ სახით.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        style_fields(
+            self,
+            {
+                "new_password1": "Create a new password",
+                "new_password2": "Repeat the new password",
+            },
+        )

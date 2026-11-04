@@ -62,6 +62,19 @@
     background: rgba(220, 53, 69, 0.12);
 }
 
+/* HW44: პაროლის აღდგენის გვერდების წრე ხატულით (delete-icon-ის ანალოგი, მაგრამ არა წითელი):
+   status-icon-primary = საიტის ფერი ("შეამოწმეთ ფოსტა"), status-icon-success = მწვანე ("პაროლი შეიცვალა") */
+.status-icon {
+    width: 80px;
+    height: 80px;
+}
+.status-icon-primary {
+    background: rgba(242, 139, 0, 0.14);
+}
+.status-icon-success {
+    background: rgba(25, 135, 84, 0.14);
+}
+
 /* მენიუში Logout: ეს <button>-ია (გასვლა POST-ით ხდება), მაგრამ ჩვეულებრივ ბმულს უნდა ჰგავდეს */
 .nav-bar .navbar .navbar-nav .nav-link-button {
     background: none;

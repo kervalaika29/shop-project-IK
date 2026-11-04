@@ -20,6 +20,9 @@
 
                         {% include "users/includes/form_fields.html" %}
 
+                        {# HW44: პაროლის აღდგენა #}
+                        <p class="text-end mb-4"><a href="{% url 'password_reset' %}">Forgot your password?</a></p>
+
                         <button type="submit" class="btn btn-primary rounded-pill py-3 px-5 w-100"><i class="fas fa-sign-in-alt me-2"></i>Login</button>
                     </form>
 

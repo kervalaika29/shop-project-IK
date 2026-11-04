@@ -1,11 +1,18 @@
 from django.contrib import messages
 from django.contrib.auth import login
-from django.contrib.auth.views import LoginView, LogoutView
+from django.contrib.auth.views import (
+    LoginView,
+    LogoutView,
+    PasswordResetCompleteView,
+    PasswordResetConfirmView,
+    PasswordResetDoneView,
+    PasswordResetView,
+)
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
 
-from .forms import LoginForm, RegisterForm
+from .forms import LoginForm, RegisterForm, UserPasswordResetForm, UserSetPasswordForm
 
 
 class RegisterView(CreateView):
@@ -61,3 +68,53 @@ class UserLogoutView(LogoutView):
         response = super().post(request, *args, **kwargs)
         messages.info(request, "You have been logged out.")
         return response
+
+
+# ---------------------------------------------------------------------------------------------
+# პაროლის აღდგენა (HW44). ოთხი ნაბიჯი, თითოეული Django-ს მზა view-ზეა აგებული:
+#   1) /users/password-reset/                 email-ის შეყვანა            (UserPasswordResetView)
+#   2) /users/password-reset/done/            "შეამოწმეთ ფოსტა"           (UserPasswordResetDoneView)
+#   3) /users/reset/<uidb64>/<token>/         ახალი პაროლი (ბმული email-იდან) (UserPasswordResetConfirmView)
+#   4) /users/reset/done/                     "პაროლი შეიცვალა"           (UserPasswordResetCompleteView)
+# ჩვენ მხოლოდ შაბლონებს (საიტის დიზაინით) და ფორმებს (Bootstrap სტილით) ვცვლით, ლოგიკა Django-სია.
+# ---------------------------------------------------------------------------------------------
+
+
+class UserPasswordResetView(PasswordResetView):
+    """
+    1-ლი ნაბიჯი: email-ის ფორმა. სწორი ფორმის შემდეგ Django ქმნის ერთჯერად ტოკენიან ბმულს და
+    აგზავნის email-ს (settings.py-ში MAILERS = console, ამიტომ წერილი runserver-ის ტერმინალში
+    იბეჭდება). ყოველთვის ერთსა და იმავე "done" გვერდზე გადავდივართ, მაშინაც, როცა ასეთი
+    email ბაზაში არ არის, რომ გვერდიდან ვერავინ გაიგოს, ვინ არის დარეგისტრირებული.
+    """
+
+    template_name = "users/password_reset_form.html"
+    email_template_name = "users/password_reset_email.txt"  # წერილის ტექსტი
+    subject_template_name = "users/password_reset_subject.txt"  # წერილის თემა
+    form_class = UserPasswordResetForm
+    success_url = reverse_lazy("password_reset_done")
+
+
+class UserPasswordResetDoneView(PasswordResetDoneView):
+    """მე-2 ნაბიჯი: "წერილი გაგზავნილია" (მხოლოდ შეტყობინების გვერდი)."""
+
+    template_name = "users/password_reset_done.html"
+
+
+class UserPasswordResetConfirmView(PasswordResetConfirmView):
+    """
+    მე-3 ნაბიჯი: ბმული email-იდან. Django ამოწმებს ბმულს (uidb64 = მომხმარებლის id, token =
+    ერთჯერადი ტოკენი): თუ ბმული სწორია, `validlink=True` და ჩანს ახალი პაროლის ფორმა; თუ
+    ვადაგასულია ან უკვე გამოყენებულია, `validlink=False` და შაბლონი შეცდომას აჩვენებს.
+    ტოკენი პაროლის შეცვლისთანავე ძალას კარგავს, ამიტომ ერთი ბმულით პაროლს ორჯერ ვერ შეცვლიან.
+    """
+
+    template_name = "users/password_reset_confirm.html"
+    form_class = UserSetPasswordForm
+    success_url = reverse_lazy("password_reset_complete")
+
+
+class UserPasswordResetCompleteView(PasswordResetCompleteView):
+    """მე-4 ნაბიჯი: "პაროლი შეიცვალა" + ღილაკი შესვლის გვერდზე."""
+
+    template_name = "users/password_reset_complete.html"
