@@ -39,8 +39,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Django REST Framework (HW45): სერიალიზატორები, API view-ები და ბრაუზერული API
+    "rest_framework",
     "shop",
     "users",
+    # REST API აპლიკაცია (HW45): /api/...
+    "api",
 ]
 
 MIDDLEWARE = [
@@ -150,6 +154,25 @@ LOGOUT_REDIRECT_URL = "home"
 # /admin/ კი ჩვეულებრივ მუშაობს. გასართავად ჩაწერეთ True და შეინახეთ (runserver თავისით გადაიტვირთება),
 # გამოსართავად დააბრუნეთ False.
 MAINTENANCE_MODE = False
+
+
+# Django REST Framework (HW45)
+# https://www.django-rest-framework.org/api-guide/settings/
+
+REST_FRAMEWORK = {
+    # ვინ არის მომხმარებელი: საიტის სესიით (ბრაუზერიდან შესული) ან username/პაროლით (Basic,
+    # მაგ. curl-ით). SessionAuthentication პირველია: ანონიმურს 403 უბრუნდება და ბრაუზერში
+    # შესვლის ბმული ჩანს (Basic-ის პირველობისას ბრაუზერი თავისი ფანჯრით მოითხოვდა პაროლს).
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.BasicAuthentication",
+    ],
+    # წაკითხვა (GET) ყველას შეუძლია, ცვლილება (POST და ა.შ.) მხოლოდ ავტორიზებულს:
+    # საიტზეც ასეა (HW41: პროდუქტის დამატება მხოლოდ შესულ მომხმარებელს შეუძლია).
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+    ],
+}
 
 
 # Messages (შეტყობინებები: "პროდუქტი დაემატა" და ა.შ.)
